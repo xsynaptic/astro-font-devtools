@@ -42,6 +42,8 @@ export class FontCombobox extends HTMLElement {
 			event.stopPropagation();
 		});
 		this.input.addEventListener('focus', () => {
+			// Select the current family so re-focusing after a pick lets you type a fresh search.
+			this.input.select();
 			this.openDropdown();
 		});
 		this.input.addEventListener('blur', () => {
@@ -174,6 +176,8 @@ export class FontCombobox extends HTMLElement {
 		this.input.value = option.family;
 		this.closeDropdown();
 		this.dispatchEvent(new CustomEvent<ComboboxOption>('change', { detail: option }));
+		// Drop focus so the next click on the input re-opens the dropdown to pick another font.
+		this.input.blur();
 	}
 }
 

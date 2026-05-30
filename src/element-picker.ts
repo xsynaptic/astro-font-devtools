@@ -1,7 +1,7 @@
 // Graphically pick a DOM element off the page. Drives Astro's built-in
 // `<astro-dev-toolbar-highlight>` (globally registered by the toolbar) as a cursor-following
-// overlay, then resolves the element under the pointer on click. Experimental: paired with
-// the element rows in `toolbar.ts`, separate from the CSS-variable targeting flow.
+// overlay, then resolves the element under the pointer on click. `onPick` receives the element;
+// the toolbar turns it into a selector row.
 export interface ElementPicker {
 	start(): void;
 	stop(): void;

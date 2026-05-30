@@ -8,14 +8,15 @@ import { createResolveHandler } from './resolve.js';
 interface Options {
 	/** Which font providers to browse. Defaults to Fontsource only. */
 	providers?: Array<ProviderName>;
-	/** CSS custom properties exposed as swap targets. */
-	vars: Array<string>;
+	/** Targets pre-loaded as rows: CSS custom properties (e.g. `--font-display`) or selectors
+	 * (e.g. `h1`, `.hero`). Optional — targets can also be added from the toolbar at runtime. */
+	targets?: Array<string>;
 }
 
 const APP_ID = 'astro-font-devtools';
 
-export default function fontDevtools(options: Options): AstroIntegration {
-	const { providers = ['fontsource'], vars } = options;
+export default function fontDevtools(options: Options = {}): AstroIntegration {
+	const { providers = ['fontsource'], targets = [] } = options;
 
 	return {
 		hooks: {
@@ -36,7 +37,7 @@ export default function fontDevtools(options: Options): AstroIntegration {
 				server.middlewares.use('/__astro-font-devtools/catalog', createCatalogHandler(providers));
 				server.middlewares.use('/__astro-font-devtools/resolve', createResolveHandler(providers));
 				toolbar.on(`${APP_ID}:init`, () => {
-					toolbar.send(`${APP_ID}:config`, { vars });
+					toolbar.send(`${APP_ID}:config`, { targets });
 				});
 			},
 		},
