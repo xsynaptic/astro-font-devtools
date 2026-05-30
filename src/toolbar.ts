@@ -4,8 +4,9 @@ import type { ComboboxOption, FontCombobox } from './combobox.js';
 import type { CatalogFont } from './types.js';
 
 import './combobox.js';
+import { rowHeight } from './combobox.js';
 import { createElementPicker } from './element-picker.js';
-import { FONT_CATEGORIES } from './types.js';
+import { fontCategories } from './types.js';
 
 interface Selection {
 	family: string;
@@ -20,12 +21,12 @@ interface State {
 	selections: Record<string, Selection>;
 }
 
-const APP_ID = 'astro-font-devtools';
-const STORAGE_KEY = 'astro-font-devtools:state';
-const CATALOG_URL = '/__astro-font-devtools/catalog';
-const RESOLVE_URL = '/__astro-font-devtools/resolve';
-const CATEGORIES = ['all', ...FONT_CATEGORIES];
-const GENERIC_FAMILIES = new Set([
+const appId = 'astro-font-devtools';
+const storageKey = 'astro-font-devtools:state';
+const catalogUrl = '/__astro-font-devtools/catalog';
+const resolveUrl = '/__astro-font-devtools/resolve';
+const categories = ['all', ...fontCategories];
+const genericFamilies = new Set([
 	'cursive',
 	'fantasy',
 	'monospace',
@@ -70,7 +71,7 @@ function extractFallback(currentValue: string): string {
 		.map((token) => token.trim().replaceAll(/^['"]|['"]$/g, ''));
 	for (let index = tokens.length - 1; index >= 0; index -= 1) {
 		const token = tokens[index];
-		if (token && GENERIC_FAMILIES.has(token)) return token;
+		if (token && genericFamilies.has(token)) return token;
 	}
 	return 'sans-serif';
 }
@@ -109,7 +110,7 @@ function isVarTarget(target: string): boolean {
 
 function loadCatalog(): Promise<Array<CatalogFont>> {
 	if (catalog) return Promise.resolve(catalog);
-	catalogPromise ??= fetch(CATALOG_URL)
+	catalogPromise ??= fetch(catalogUrl)
 		.then((response) => response.json() as Promise<Array<CatalogFont>>)
 		.then((fonts) => {
 			catalog = fonts;
@@ -125,7 +126,7 @@ function loadCatalog(): Promise<Array<CatalogFont>> {
 
 function loadState(): State {
 	try {
-		const raw = sessionStorage.getItem(STORAGE_KEY);
+		const raw = sessionStorage.getItem(storageKey);
 		if (!raw) return { added: [], selections: {} };
 		const parsed = JSON.parse(raw) as Partial<State>;
 		return { added: parsed.added ?? [], selections: parsed.selections ?? {} };
@@ -162,8 +163,11 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 				.fdt-combobox input { width: 100%; font: inherit; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.25rem 0.5rem; box-sizing: border-box; }
 				.fdt-combobox input:focus { outline: 2px solid rgba(125, 125, 255, 0.4); outline-offset: -1px; }
 				.fdt-dropdown { position: fixed; z-index: 2147483647; margin: 0; padding: 0; list-style: none; overflow-y: auto; background: #1f1f24; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; font-family: system-ui, sans-serif; font-size: 0.8125rem; color: rgba(255, 255, 255, 0.86); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); }
-				.fdt-dropdown li { padding: 0.25rem 0.5rem; cursor: pointer; }
-				.fdt-dropdown li:hover, .fdt-dropdown li.fdt-active { background: rgba(125, 125, 255, 0.2); }
+				.fdt-sizer { position: relative; width: 100%; }
+				.fdt-option { position: absolute; left: 0; right: 0; height: ${String(rowHeight)}px; box-sizing: border-box; padding: 0 0.5rem; display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+				.fdt-option:hover, .fdt-option.fdt-active { background: rgba(125, 125, 255, 0.2); }
+				.fdt-fam { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+				.fdt-var { flex: none; font-size: 0.625rem; font-weight: 600; letter-spacing: 0.03em; padding: 0 0.3em; border-radius: 0.2rem; background: rgba(125, 125, 255, 0.25); color: rgba(255, 255, 255, 0.85); }
 				.fdt-disabled { opacity: 0.4; pointer-events: none; }
 				.fdt-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 				.fdt-providers { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-left: auto; }
@@ -249,7 +253,7 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 		const computeOptions = (): Array<ComboboxOption> =>
 			fonts
 				.filter((font) => font.providers.some((provider) => active.has(provider)))
-				.map((font) => ({ category: font.category, family: font.family }));
+				.map((font) => ({ category: font.category, family: font.family, variable: font.variable }));
 
 		function refreshOptions(): void {
 			currentOptions = computeOptions();
@@ -325,7 +329,7 @@ function renderRow(
 	row.innerHTML = `
 		<div class="fdt-rmain">
 			<input class="fdt-target" spellcheck="false" autocomplete="off" placeholder="--font-var or .selector" aria-label="Target: CSS variable or selector" />
-			<select class="fdt-category" id="fdt-category-${rowId}" aria-label="Filter by category">${CATEGORIES.map((category) => `<option value="${category}">${category}</option>`).join('')}</select>
+			<select class="fdt-category" id="fdt-category-${rowId}" aria-label="Filter by category">${categories.map((category) => `<option value="${category}">${category}</option>`).join('')}</select>
 			<font-combobox></font-combobox>
 			<select data-control="weight" class="fdt-select" aria-label="Font weight" disabled></select>
 			<button data-control="italic" class="fdt-italic" type="button" aria-pressed="false" aria-label="Toggle italic" disabled>I</button>
@@ -529,12 +533,12 @@ function resolveCss(
 		weights: weights.join(','),
 	});
 	if (provider) params.set('provider', provider);
-	return fetch(`${RESOLVE_URL}?${params.toString()}`).then((response) => response.text());
+	return fetch(`${resolveUrl}?${params.toString()}`).then((response) => response.text());
 }
 
 function saveState(state: State): void {
 	try {
-		sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+		sessionStorage.setItem(storageKey, JSON.stringify(state));
 	} catch {
 		/* sessionStorage may be unavailable in some contexts */
 	}
@@ -561,11 +565,11 @@ export default defineToolbarApp({
 			applyWindowPlacement(canvas, getToolbarPlacement());
 		}
 
-		server.on<{ targets?: Array<string> }>(`${APP_ID}:config`, ({ targets = [] }) => {
+		server.on<{ targets?: Array<string> }>(`${appId}:config`, ({ targets = [] }) => {
 			configuredTargets = targets;
 			setup(targets);
 		});
-		server.send(`${APP_ID}:init`, {});
+		server.send(`${appId}:init`, {});
 
 		app.addEventListener('placement-updated', (event) => {
 			applyWindowPlacement(canvas, (event as CustomEvent<{ placement: string }>).detail.placement);

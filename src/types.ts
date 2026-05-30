@@ -11,7 +11,7 @@ export interface CatalogFont {
 	weights: Array<number>;
 }
 
-export const FONT_CATEGORIES = [
+export const fontCategories = [
 	'sans-serif',
 	'serif',
 	'monospace',
@@ -20,6 +20,6 @@ export const FONT_CATEGORIES = [
 	'other',
 ] as const;
 
-export type FontCategory = (typeof FONT_CATEGORIES)[number];
+export type FontCategory = (typeof fontCategories)[number];
 
 export type ProviderName = 'bunny' | 'fontshare' | 'fontsource' | 'google';

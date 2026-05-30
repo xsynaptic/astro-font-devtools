@@ -13,7 +13,7 @@ interface Options {
 	targets?: Array<string>;
 }
 
-const APP_ID = 'astro-font-devtools';
+const appId = 'astro-font-devtools';
 
 export default function fontDevtools(options: Options = {}): AstroIntegration {
 	const { providers = ['fontsource'], targets = [] } = options;
@@ -29,15 +29,15 @@ export default function fontDevtools(options: Options = {}): AstroIntegration {
 						import.meta.url,
 					),
 					icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><text x="8" y="13" font-family="serif" font-size="14" font-weight="700" text-anchor="middle" fill="currentColor">Aa</text></svg>`,
-					id: APP_ID,
+					id: appId,
 					name: 'Font Devtools',
 				});
 			},
 			'astro:server:setup': ({ server, toolbar }) => {
 				server.middlewares.use('/__astro-font-devtools/catalog', createCatalogHandler(providers));
 				server.middlewares.use('/__astro-font-devtools/resolve', createResolveHandler(providers));
-				toolbar.on(`${APP_ID}:init`, () => {
-					toolbar.send(`${APP_ID}:config`, { targets });
+				toolbar.on(`${appId}:init`, () => {
+					toolbar.send(`${appId}:config`, { targets });
 				});
 			},
 		},

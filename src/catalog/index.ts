@@ -7,7 +7,7 @@ import { fontshareCatalog } from './fontshare.js';
 import { fontsourceCatalog } from './fontsource.js';
 import { googleCatalog, googlePopularityMap } from './google.js';
 
-const ADAPTERS: Record<ProviderName, () => Promise<Array<CatalogFont>>> = {
+const adapters: Record<ProviderName, () => Promise<Array<CatalogFont>>> = {
 	bunny: bunnyCatalog,
 	fontshare: fontshareCatalog,
 	fontsource: fontsourceCatalog,
@@ -34,7 +34,7 @@ export function createCatalogHandler(providers: Array<ProviderName>): Connect.Ne
 
 async function assembleCatalog(providers: Array<ProviderName>): Promise<Array<CatalogFont>> {
 	const [lists, popularity] = await Promise.all([
-		Promise.all(providers.map((name) => ADAPTERS[name]())),
+		Promise.all(providers.map((name) => adapters[name]())),
 		googlePopularityMap(),
 	]);
 	const byFamily = new Map<string, CatalogFont>();

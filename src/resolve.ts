@@ -8,7 +8,7 @@ import type { ProviderName } from './types.js';
 type Storage = NonNullable<UnifontOptions['storage']>;
 type UnifontInstance = Awaited<ReturnType<typeof createUnifont>>;
 
-const PROVIDER_FACTORIES = {
+const providerFactories = {
 	bunny: unifontProviders.bunny,
 	fontshare: unifontProviders.fontshare,
 	fontsource: unifontProviders.fontsource,
@@ -52,7 +52,7 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 }
 
 function getUnifont(providers: Array<ProviderName>): Promise<UnifontInstance> {
-	const instances = providers.map((name) => PROVIDER_FACTORIES[name]());
+	const instances = providers.map((name) => providerFactories[name]());
 	// createUnifont wants a non-empty tuple; `providers` always has at least one entry.
 	unifontPromise ??= createUnifont(instances as [Provider, ...Array<Provider>], {
 		storage: memoryStorage(),

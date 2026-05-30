@@ -2,16 +2,14 @@ import type * as z from 'zod';
 
 import type { FontCategory, ProviderName } from '../types.js';
 
-import { FONT_CATEGORIES } from '../types.js';
+import { fontCategories } from '../types.js';
 
-const KNOWN_CATEGORIES = new Set<string>(
-	FONT_CATEGORIES.filter((category) => category !== 'other'),
-);
+const knownCategories = new Set<string>(fontCategories.filter((category) => category !== 'other'));
 
 export function normalizeCategory(raw: string): FontCategory {
 	const value = raw.toLowerCase().replaceAll(/\s+/g, '-');
 
-	return KNOWN_CATEGORIES.has(value) ? (value as FontCategory) : 'other';
+	return knownCategories.has(value) ? (value as FontCategory) : 'other';
 }
 
 /**

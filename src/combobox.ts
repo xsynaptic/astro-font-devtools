@@ -1,10 +1,17 @@
 export interface ComboboxOption {
 	category: string;
 	family: string;
+	variable: boolean;
 }
 
-const MAX_VISIBLE = 100;
-const MIN_DROPDOWN = 120;
+export const rowHeight = 26; // px per row; the .fdt-option CSS height in toolbar.ts derives from this
+const bufferRows = 6; // extra rows rendered above and below the visible window
+const minDropdownHeight = 120;
+
+// Row markup, cloned per visible option. Filling via textContent keeps family names injection-safe.
+const rowTemplate = document.createElement('template');
+rowTemplate.innerHTML =
+	'<div class="fdt-option" role="option"><span class="fdt-fam"></span><span class="fdt-var">VAR</span></div>';
 
 export class FontCombobox extends HTMLElement {
 	private activeIndex = -1;
@@ -12,8 +19,11 @@ export class FontCombobox extends HTMLElement {
 	private category = 'all';
 	private filtered: Array<ComboboxOption> = [];
 	private input!: HTMLInputElement;
-	private list!: HTMLUListElement;
+	private list!: HTMLDivElement;
+	private rafPending = false;
 	private root!: ShadowRoot;
+	private sizer!: HTMLDivElement;
+
 	connectedCallback(): void {
 		this.innerHTML = `
 			<div class="fdt-combobox">
@@ -22,13 +32,20 @@ export class FontCombobox extends HTMLElement {
 		`;
 		this.input = this.querySelector('input')!;
 
-		// The list floats free of the dev-toolbar window: it lives at the shadow-root
-		// level (outside the window's clipped, transformed box) and is positioned with
-		// fixed coordinates so it can open up or down and use the full viewport height.
+		// The list floats free of the dev-toolbar window: it lives at the shadow-root level
+		// (outside the window's clipped, transformed box) and is positioned with fixed coordinates
+		// so it can open up or down and use the full viewport height.
 		this.root = this.getRootNode() as ShadowRoot;
-		this.list = document.createElement('ul');
+		this.list = document.createElement('div');
 		this.list.className = 'fdt-dropdown';
+		this.list.setAttribute('role', 'listbox');
 		this.list.hidden = true;
+
+		// Virtual scroll: the sizer is as tall as the whole filtered list so the scrollbar is real,
+		// but only the rows inside the visible window are ever in the DOM (absolutely positioned).
+		this.sizer = document.createElement('div');
+		this.sizer.className = 'fdt-sizer';
+		this.list.append(this.sizer);
 		this.root.append(this.list);
 
 		this.input.addEventListener('input', () => {
@@ -36,9 +53,8 @@ export class FontCombobox extends HTMLElement {
 			this.applyFilter();
 		});
 		this.input.addEventListener('change', (event) => {
-			// The input's native change event would otherwise bubble to the host and
-			// collide with this component's own semantic `change` CustomEvent (whose
-			// listener reads event.detail). Stop it here so only our event escapes.
+			// The input's native change event would otherwise bubble to the host and collide with
+			// this component's own semantic `change` CustomEvent (whose listener reads event.detail).
 			event.stopPropagation();
 		});
 		this.input.addEventListener('focus', () => {
@@ -54,6 +70,14 @@ export class FontCombobox extends HTMLElement {
 		this.input.addEventListener('keydown', (event) => {
 			this.handleKey(event);
 		});
+
+		this.list.addEventListener('mousedown', (event) => {
+			const row = (event.target as HTMLElement).closest<HTMLElement>('[data-index]');
+			if (!row) return;
+			event.preventDefault(); // keep input focus so the blur handler doesn't close before select
+			this.selectIndex(Number(row.dataset.index));
+		});
+		this.list.addEventListener('scroll', this.onScroll);
 
 		globalThis.addEventListener('resize', this.reposition);
 		this.root.addEventListener('scroll', this.reposition, true);
@@ -83,14 +107,26 @@ export class FontCombobox extends HTMLElement {
 		const query = this.input.value.toLowerCase().trim();
 		this.filtered = this.allOptions
 			.filter((option) => this.category === 'all' || option.category === this.category)
-			.filter((option) => !query || option.family.toLowerCase().includes(query))
-			.slice(0, MAX_VISIBLE);
+			.filter((option) => !query || option.family.toLowerCase().includes(query));
 		this.activeIndex = -1;
-		this.renderList();
+		this.sizer.style.height = `${String(this.filtered.length * rowHeight)}px`;
+		this.list.scrollTop = 0;
+		this.renderWindow();
 	}
 
 	private closeDropdown(): void {
 		this.list.hidden = true;
+	}
+
+	private ensureActiveVisible(): void {
+		if (this.activeIndex < 0) return;
+		const top = this.activeIndex * rowHeight;
+		const bottom = top + rowHeight;
+		if (top < this.list.scrollTop) {
+			this.list.scrollTop = top;
+		} else if (bottom > this.list.scrollTop + this.list.clientHeight) {
+			this.list.scrollTop = bottom - this.list.clientHeight;
+		}
 	}
 
 	private handleKey(event: KeyboardEvent): void {
@@ -98,14 +134,16 @@ export class FontCombobox extends HTMLElement {
 			case 'ArrowDown': {
 				event.preventDefault();
 				this.activeIndex = Math.min(this.activeIndex + 1, this.filtered.length - 1);
-				this.renderList();
+				this.ensureActiveVisible();
+				this.renderWindow();
 
 				break;
 			}
 			case 'ArrowUp': {
 				event.preventDefault();
 				this.activeIndex = Math.max(this.activeIndex - 1, 0);
-				this.renderList();
+				this.ensureActiveVisible();
+				this.renderWindow();
 
 				break;
 			}
@@ -125,9 +163,19 @@ export class FontCombobox extends HTMLElement {
 		}
 	}
 
+	private readonly onScroll = (): void => {
+		if (this.rafPending) return;
+		this.rafPending = true;
+		requestAnimationFrame(() => {
+			this.rafPending = false;
+			this.renderWindow();
+		});
+	};
+
 	private openDropdown(): void {
 		this.list.hidden = false;
 		this.positionList();
+		this.renderWindow();
 	}
 
 	private positionList(): void {
@@ -135,7 +183,7 @@ export class FontCombobox extends HTMLElement {
 		const spaceBelow = globalThis.innerHeight - rect.bottom;
 		const spaceAbove = rect.top;
 		const openDown = spaceBelow >= spaceAbove;
-		const maxHeight = Math.max(MIN_DROPDOWN, (openDown ? spaceBelow : spaceAbove) - 12);
+		const maxHeight = Math.max(minDropdownHeight, (openDown ? spaceBelow : spaceAbove) - 12);
 		const style = this.list.style;
 		style.left = `${String(Math.round(rect.left))}px`;
 		style.width = `${String(Math.round(rect.width))}px`;
@@ -149,23 +197,27 @@ export class FontCombobox extends HTMLElement {
 		}
 	}
 
-	private renderList(): void {
-		this.list.innerHTML = this.filtered
-			.map(
-				(option, index) =>
-					`<li data-index="${String(index)}" class="${index === this.activeIndex ? 'fdt-active' : ''}">${option.family}</li>`,
-			)
-			.join('');
-		for (const li of this.list.querySelectorAll('li')) {
-			li.addEventListener('mousedown', (event) => {
-				event.preventDefault();
-				const index = Number(li.dataset.index);
-				this.selectIndex(index);
-			});
+	private renderWindow(): void {
+		const viewportHeight = this.list.clientHeight || minDropdownHeight;
+		const start = Math.max(0, Math.floor(this.list.scrollTop / rowHeight) - bufferRows);
+		const end = Math.min(
+			this.filtered.length,
+			start + Math.ceil(viewportHeight / rowHeight) + bufferRows * 2,
+		);
+		const fragment = document.createDocumentFragment();
+		for (let index = start; index < end; index += 1) {
+			const option = this.filtered[index]!;
+			const row = rowTemplate.content.firstElementChild!.cloneNode(true) as HTMLElement;
+			row.dataset.index = String(index);
+			row.style.top = `${String(index * rowHeight)}px`;
+			row.classList.toggle('fdt-active', index === this.activeIndex);
+			row.querySelector('.fdt-fam')!.textContent = option.family;
+			if (!option.variable) row.querySelector('.fdt-var')!.remove();
+			fragment.append(row);
 		}
+		this.sizer.replaceChildren(fragment);
 	}
 
-	// Reposition the floating list when its surroundings move (rows scroll, resize).
 	private readonly reposition = (): void => {
 		if (!this.list.hidden) this.positionList();
 	};
