@@ -2,7 +2,7 @@ import type { AstroIntegration } from 'astro';
 
 import type { ProviderName } from './types.js';
 
-import { createCatalogHandler } from './catalog.js';
+import { createCatalogHandler } from './catalog/index.js';
 import { createResolveHandler } from './resolve.js';
 
 interface Options {
@@ -16,6 +16,7 @@ const APP_ID = 'astro-font-devtools';
 
 export default function fontDevtools(options: Options): AstroIntegration {
 	const { providers = ['fontsource'], vars } = options;
+
 	return {
 		hooks: {
 			'astro:config:setup': ({ addDevToolbarApp, command }) => {
@@ -23,7 +24,7 @@ export default function fontDevtools(options: Options): AstroIntegration {
 				addDevToolbarApp({
 					// Source in dev (Vite compiles the .ts), built file once published.
 					entrypoint: new URL(
-						import.meta.url.endsWith('.ts') ? 'toolbar.ts' : 'toolbar.js',
+						import.meta.url.endsWith('.ts') ? 'toolbar.ts' : 'toolbar.mjs',
 						import.meta.url,
 					),
 					icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><text x="8" y="13" font-family="serif" font-size="14" font-weight="700" text-anchor="middle" fill="currentColor">Aa</text></svg>`,

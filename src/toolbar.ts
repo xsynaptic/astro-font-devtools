@@ -4,6 +4,7 @@ import type { ComboboxOption, FontCombobox } from './combobox.js';
 import type { CatalogFont } from './types.js';
 
 import './combobox.js';
+import { createElementPicker } from './element-picker.js';
 
 interface Selection {
 	family: string;
@@ -13,6 +14,9 @@ interface Selection {
 }
 
 type State = Record<string, Selection>;
+
+// A row targets either a configured CSS variable or a picked DOM element (addressed by selector).
+type Target = { element: HTMLElement; kind: 'element' } | { kind: 'var'; varName: string };
 
 const APP_ID = 'astro-font-devtools';
 const STORAGE_KEY = 'astro-font-devtools:state';
@@ -32,11 +36,14 @@ const GENERIC_FAMILIES = new Set([
 	'ui-serif',
 ]);
 
+let activePicker: ReturnType<typeof createElementPicker> | undefined;
 let catalog: Array<CatalogFont> | undefined;
 let catalogPromise: Promise<Array<CatalogFont>> | undefined;
+let elementRowCounter = 0;
 
 interface RowHandle {
 	element: HTMLElement;
+	restore(): void;
 	setOptions(options: Array<ComboboxOption>): void;
 }
 
@@ -57,6 +64,15 @@ async function applySelection(varName: string, selection: Selection): Promise<vo
 function applyWindowPlacement(canvas: ShadowRoot, placement: null | string | undefined): void {
 	if (!placement) return;
 	canvas.querySelector('astro-dev-toolbar-window')?.setAttribute('placement', placement);
+}
+
+function defaultSelector(element: HTMLElement): string {
+	const tag = element.tagName.toLowerCase();
+	// Prefer a class (readable and broad — matches siblings), then id, else the bare tag.
+	const className = element.classList[0];
+	if (className) return `${tag}.${className}`;
+	if (element.id) return `${tag}#${element.id}`;
+	return tag;
 }
 
 function extractFallback(currentValue: string): string {
@@ -85,10 +101,10 @@ function getToolbarPlacement(): string | undefined {
 	return root?.dataset.placement;
 }
 
-function injectFontStyle(varName: string, css: string): void {
-	document.head.querySelector(`style[data-font-devtools="${varName}"]`)?.remove();
+function injectFontStyle(key: string, css: string): void {
+	document.head.querySelector(`style[data-font-devtools="${key}"]`)?.remove();
 	const style = document.createElement('style');
-	style.dataset.fontDevtools = varName;
+	style.dataset.fontDevtools = key;
 	style.textContent = css;
 	document.head.append(style);
 }
@@ -124,6 +140,7 @@ async function reapplyAll(vars: Array<string>): Promise<void> {
 }
 
 function render(canvas: ShadowRoot, vars: Array<string>): void {
+	activePicker?.stop();
 	canvas.innerHTML = `
 		<astro-dev-toolbar-window>
 			<style>
@@ -131,13 +148,16 @@ function render(canvas: ShadowRoot, vars: Array<string>): void {
 				.fdt-status { font-size: 0.8125rem; color: rgba(255, 255, 255, 0.5); padding: 0.25rem 0; }
 				.fdt-empty { color: rgba(255, 255, 255, 0.6); font-size: 0.875rem; }
 				#fdt-rows { max-height: min(60vh, 28rem); overflow-y: auto; }
-				.fdt-row { padding: 0.4rem 0; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+				.fdt-row { padding: 0.5rem 0; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 				.fdt-row:first-of-type { border-top: 0; }
-				.fdt-row-main { display: grid; grid-template-columns: 12ch 7rem 1fr auto; gap: 0.5rem; align-items: center; }
+				.fdt-rhead { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; }
+				.fdt-rmain { display: grid; grid-template-columns: 7rem 1fr auto; gap: 0.5rem; align-items: center; }
 				.fdt-name { font-family: ui-monospace, monospace; font-size: 0.8125rem; cursor: help; }
+				.fdt-selector { flex: 1; min-width: 0; box-sizing: border-box; font-family: ui-monospace, monospace; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.25rem 0.5rem; }
+				.fdt-selector:focus { outline: 2px solid rgba(125, 125, 255, 0.4); outline-offset: -1px; }
 				.fdt-tip { display: none; position: absolute; z-index: 20; padding: 0.25rem 0.5rem; max-width: 24rem; background: #1f1f24; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; font-family: ui-monospace, monospace; font-size: 0.75rem; line-height: 1.4; color: rgba(255, 255, 255, 0.85); white-space: normal; word-break: break-word; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); pointer-events: none; }
 				.fdt-category { font: inherit; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.25rem 0.4rem; }
-				.fdt-detail { display: none; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-top: 0.4rem; padding-left: 12ch; }
+				.fdt-detail { display: none; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-top: 0.4rem; }
 				.fdt-detail[data-open] { display: flex; }
 				.fdt-field { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: rgba(255, 255, 255, 0.7); }
 				.fdt-select { font: inherit; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.2rem 0.3rem; }
@@ -149,10 +169,20 @@ function render(canvas: ShadowRoot, vars: Array<string>): void {
 				.fdt-dropdown li { padding: 0.25rem 0.5rem; cursor: pointer; }
 				.fdt-dropdown li:hover, .fdt-dropdown li.fdt-active { background: rgba(125, 125, 255, 0.2); }
 				.fdt-disabled { opacity: 0.4; pointer-events: none; }
+				.fdt-bar { display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.4rem; }
+				.fdt-providers { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+				.fdt-providers[hidden] { display: none; }
+				.fdt-providers-label { font-size: 0.7rem; color: rgba(255, 255, 255, 0.4); margin-right: 0.1rem; }
+				.fdt-provider { font: inherit; font-size: 0.7rem; cursor: pointer; padding: 0.15rem 0.45rem; border-radius: 0.25rem; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.45); }
+				.fdt-provider[aria-pressed="true"] { background: rgba(125, 125, 255, 0.25); border-color: rgba(125, 125, 255, 0.5); color: #fff; }
 			</style>
 			<div class="fdt-panel">
-				<div id="fdt-status" class="fdt-status">Loading fonts...</div>
+				<div class="fdt-bar">
+					<astro-dev-toolbar-button id="fdt-pick" button-style="outline" size="small">Pick an element</astro-dev-toolbar-button>
+					<span id="fdt-status" class="fdt-status">Loading fonts...</span>
+				</div>
 				<div id="fdt-rows"></div>
+				<div id="fdt-providers" class="fdt-providers" hidden></div>
 				<span id="fdt-tip" class="fdt-tip"></span>
 			</div>
 		</astro-dev-toolbar-window>
@@ -166,13 +196,8 @@ function render(canvas: ShadowRoot, vars: Array<string>): void {
 
 	const rows = canvas.querySelector('#fdt-rows');
 	const status = canvas.querySelector('#fdt-status');
-	if (!rows || !status) return;
-
-	if (vars.length === 0) {
-		rows.innerHTML = `<p class="fdt-empty">No <code>vars</code> configured. Pass <code>{ vars: ['--font-sans', ...] }</code> to the integration.</p>`;
-		status.remove();
-		return;
-	}
+	const pickButton = canvas.querySelector('#fdt-pick');
+	if (!rows || !status || !pickButton) return;
 
 	const panel = canvas.querySelector<HTMLElement>('.fdt-panel')!;
 	const tipEl = canvas.querySelector<HTMLElement>('#fdt-tip')!;
@@ -193,37 +218,163 @@ function render(canvas: ShadowRoot, vars: Array<string>): void {
 	const state = loadState();
 	const rowHandles: Array<RowHandle> = [];
 
+	// Providers active in the global filter (populated once the catalog loads). A row resolves a
+	// font from the first active provider that offers it, so toggling a provider off steers
+	// resolution too, not just discovery.
+	const active = new Set<string>();
+	const providerFor = (font: CatalogFont): string | undefined =>
+		font.providers.find((provider) => active.has(provider));
+
 	for (const varName of vars) {
-		const handle = renderRow(varName, state, tooltip);
+		const handle = renderRow({ kind: 'var', varName }, state, tooltip, providerFor);
 		rows.append(handle.element);
 		rowHandles.push(handle);
 	}
 
+	if (vars.length === 0) {
+		const hint = document.createElement('p');
+		hint.className = 'fdt-empty';
+		hint.innerHTML = `No <code>vars</code> configured. Use <strong>Pick an element</strong>, or pass <code>{ vars: ['--font-sans', ...] }</code> to target CSS variables.`;
+		rows.append(hint);
+	}
+
+	const providersEl = canvas.querySelector<HTMLElement>('#fdt-providers');
+	let currentOptions: Array<ComboboxOption> = [];
+	const picker = createElementPicker((element) => {
+		const handle = renderRow({ element, kind: 'element' }, state, tooltip, providerFor);
+		// Append before setOptions: the combobox reads this.input in its filter, which only
+		// exists after connectedCallback has run (i.e. once it is in the DOM).
+		rows.append(handle.element);
+		handle.setOptions(currentOptions);
+		rowHandles.push(handle); // track so provider toggles refresh its options too
+		handle.element.scrollIntoView({ block: 'nearest' });
+	});
+	activePicker = picker;
+	setDisabled(pickButton, true);
+	pickButton.addEventListener('click', () => {
+		picker.start();
+	});
+
 	void loadCatalog().then((fonts) => {
 		status.remove();
-		const options = fonts.map((font) => ({ category: font.category, family: font.family }));
+		// Every provider starts active; a font shows if any active provider offers it.
+		for (const provider of fonts.flatMap((font) => font.providers)) active.add(provider);
+		const computeOptions = (): Array<ComboboxOption> =>
+			fonts
+				.filter((font) => font.providers.some((provider) => active.has(provider)))
+				.map((font) => ({ category: font.category, family: font.family }));
+
+		function refreshOptions(): void {
+			currentOptions = computeOptions();
+			for (const handle of rowHandles) {
+				handle.setOptions(currentOptions);
+			}
+		}
+
+		currentOptions = computeOptions();
 		for (const handle of rowHandles) {
-			handle.setOptions(options);
+			handle.setOptions(currentOptions);
+			handle.restore();
+		}
+		setDisabled(pickButton, false);
+
+		// Global provider filter — only worth showing when there's more than one to toggle.
+		const available = [...active].toSorted();
+		if (providersEl && available.length > 1) {
+			renderProviderToggles(providersEl, available, active, refreshOptions);
 		}
 	});
 }
 
-function renderRow(varName: string, state: State, tooltip: Tooltip): RowHandle {
-	const selectId = `fdt-category-${varName.replace(/^-+/, '')}`;
+// Global provider filter row: one tiny toggle per available provider. Toggling mutates the
+// shared `active` set and calls back to recompute the combined catalog. Keeps at least one
+// provider on.
+function renderProviderToggles(
+	container: HTMLElement,
+	providers: Array<string>,
+	active: Set<string>,
+	onChange: () => void,
+): void {
+	container.innerHTML = `<span class="fdt-providers-label">Providers</span>${providers
+		.map(
+			(provider) =>
+				`<button class="fdt-provider" type="button" data-provider="${provider}" aria-pressed="true">${provider}</button>`,
+		)
+		.join('')}`;
+	container.hidden = false;
+	for (const provider of providers) {
+		const button = container.querySelector<HTMLButtonElement>(`[data-provider="${provider}"]`);
+		if (!button) continue;
+		button.addEventListener('click', () => {
+			const pressed = button.getAttribute('aria-pressed') === 'true';
+			if (pressed && active.size === 1) return; // never leave the catalog empty
+			if (pressed) {
+				active.delete(provider);
+				button.setAttribute('aria-pressed', 'false');
+			} else {
+				active.add(provider);
+				button.setAttribute('aria-pressed', 'true');
+			}
+			onChange();
+		});
+	}
+}
+
+// One row, two target kinds: a configured CSS variable (--font-*) or a picked DOM element
+// addressed by an editable CSS selector. The controls below the header (category, combobox,
+// weight, italic) are identical for both; only the header, how the font is applied, and
+// persistence differ. Var rows persist in sessionStorage; element rows are ephemeral (gone on
+// the next render) and removable via the × button.
+function renderRow(
+	target: Target,
+	state: State,
+	tooltip: Tooltip,
+	providerFor: (font: CatalogFont) => string | undefined,
+): RowHandle {
+	let key: string;
+	if (target.kind === 'var') {
+		key = target.varName;
+	} else {
+		elementRowCounter += 1;
+		key = `__element-${String(elementRowCounter)}`;
+	}
+	const selectId = `fdt-category-${key.replace(/^[-_]+/, '')}`;
+
+	// Element rows seed their selector + weight/italic defaults from the picked element, so
+	// applying a font doesn't shift its current weight/style until the user changes them.
+	let selector = '';
+	let original = 'sans-serif';
+	let originalWeight = 400;
+	let originalItalic = false;
+	if (target.kind === 'element') {
+		const computed = getComputedStyle(target.element);
+		selector = defaultSelector(target.element);
+		original = computed.fontFamily || 'sans-serif';
+		originalWeight = Number.parseInt(computed.fontWeight, 10) || 400;
+		originalItalic = /^(?:italic|oblique)/.test(computed.fontStyle);
+	}
+
+	const header =
+		target.kind === 'var'
+			? `<code class="fdt-name">${target.varName}</code>`
+			: `<input class="fdt-selector" spellcheck="false" autocomplete="off" aria-label="CSS selector to style" />
+				<astro-dev-toolbar-button data-action="delete" button-style="outline" size="small" aria-label="Remove this row">✕</astro-dev-toolbar-button>`;
+
 	const row = document.createElement('div');
 	row.className = 'fdt-row';
 	row.innerHTML = `
-		<div class="fdt-row-main">
-			<code class="fdt-name">${varName}</code>
-			<select class="fdt-category" id="${selectId}" name="${selectId}" aria-label="Filter ${varName} by category">${CATEGORIES.map((category) => `<option value="${category}">${category}</option>`).join('')}</select>
+		<div class="fdt-rhead">${header}</div>
+		<div class="fdt-rmain">
+			<select class="fdt-category" id="${selectId}" name="${selectId}" aria-label="Filter by category">${CATEGORIES.map((category) => `<option value="${category}">${category}</option>`).join('')}</select>
 			<font-combobox></font-combobox>
 			<astro-dev-toolbar-button data-action="reset" button-style="outline" size="small">Reset</astro-dev-toolbar-button>
 		</div>
 		<div class="fdt-detail">
-			<label class="fdt-field">Provider <select data-control="provider" class="fdt-select"></select></label>
 			<label class="fdt-field">Weight <select data-control="weight" class="fdt-select"></select></label>
 			<label class="fdt-field"><input type="checkbox" data-control="italic" /> Italic</label>
+			<!-- Inline preview commented out for now (too much vertical space); revive later:
 			<div class="fdt-preview">The quick brown fox</div>
+			-->
 		</div>
 	`;
 
@@ -231,36 +382,37 @@ function renderRow(varName: string, state: State, tooltip: Tooltip): RowHandle {
 	const combobox = row.querySelector<FontCombobox>('font-combobox')!;
 	const resetButton = row.querySelector('[data-action="reset"]')!;
 	const detail = row.querySelector<HTMLElement>('.fdt-detail')!;
-	const providerSelect = row.querySelector<HTMLSelectElement>('[data-control="provider"]')!;
 	const weightSelect = row.querySelector<HTMLSelectElement>('[data-control="weight"]')!;
 	const italicInput = row.querySelector<HTMLInputElement>('[data-control="italic"]')!;
-	const preview = row.querySelector<HTMLElement>('.fdt-preview')!;
-	const nameEl = row.querySelector<HTMLElement>('.fdt-name')!;
-
-	nameEl.addEventListener('mouseenter', () => {
-		tooltip.show(nameEl, getCurrentValue(varName) || '(unset)');
-	});
-	nameEl.addEventListener('mouseleave', () => {
-		tooltip.hide();
-	});
 
 	let selectedFont: CatalogFont | undefined;
-	let appliedFamily = state[varName]?.family;
+	let faceCss = '';
+	let appliedFamily = target.kind === 'var' ? state[target.varName]?.family : undefined;
 
 	function updateButtons(): void {
 		setDisabled(resetButton, !appliedFamily);
 	}
 
-	function updatePreview(): void {
-		if (!selectedFont) return;
-		preview.style.fontFamily = `"${selectedFont.family}"`;
-		preview.style.fontWeight = weightSelect.value;
-		preview.style.fontStyle = italicInput.checked ? 'italic' : 'normal';
+	function pickDefaultWeight(font: CatalogFont): number {
+		const wanted = target.kind === 'element' ? originalWeight : 400;
+		if (font.weights.includes(wanted)) return wanted;
+		if (font.weights.includes(400)) return 400;
+		return font.weights[0] ?? 400;
+	}
+
+	function populatePanel(font: CatalogFont): void {
+		selectedFont = font;
+		weightSelect.innerHTML = font.weights
+			.map((weight) => `<option value="${String(weight)}">${String(weight)}</option>`)
+			.join('');
+		weightSelect.value = String(pickDefaultWeight(font));
+		italicInput.checked = target.kind === 'element' && originalItalic && font.italic;
+		italicInput.disabled = !font.italic;
+		detail.dataset.open = '';
 	}
 
 	function buildSelection(font: CatalogFont): Selection {
 		const selection: Selection = { family: font.family };
-		if (providerSelect.value) selection.provider = providerSelect.value;
 		const weight = Number(weightSelect.value);
 		if (!Number.isNaN(weight)) selection.weight = weight;
 		if (italicInput.checked) selection.italic = true;
@@ -268,44 +420,86 @@ function renderRow(varName: string, state: State, tooltip: Tooltip): RowHandle {
 	}
 
 	function persist(selection: Selection): void {
+		if (target.kind !== 'var') return;
 		const next = loadState();
-		next[varName] = selection;
+		next[target.varName] = selection;
 		saveState(next);
 	}
 
-	function populatePanel(font: CatalogFont): void {
-		selectedFont = font;
-		providerSelect.innerHTML = font.providers
-			.map((provider) => `<option value="${provider}">${provider}</option>`)
-			.join('');
-		weightSelect.innerHTML = font.weights
-			.map((weight) => `<option value="${String(weight)}">${String(weight)}</option>`)
-			.join('');
-		if (font.weights.includes(400)) weightSelect.value = '400';
-		italicInput.checked = false;
-		italicInput.disabled = !font.italic;
-		detail.dataset.open = '';
+	// Element rows apply as an injected rule: the selector plus the chosen family/weight/italic,
+	// each !important so it wins over the site's own CSS. The @font-face and the rule share one
+	// keyed <style>, recomposed on selector/weight/italic edits without re-fetching.
+	function composeElementRule(): void {
+		if (target.kind !== 'element' || !selectedFont) return;
+		const decls = [`font-family: "${selectedFont.family}", ${original} !important`];
+		if (weightSelect.value) decls.push(`font-weight: ${weightSelect.value} !important`);
+		if (italicInput.checked) decls.push('font-style: italic !important');
+		const rule = selector ? `${selector} { ${decls.join('; ')}; }` : '';
+		injectFontStyle(key, `${faceCss}\n${rule}`);
 	}
 
-	// Apply on selection — no separate "Apply" step. Loads the font onto the page
-	// (sets the target var) and updates the preview sample.
+	// Resolve + apply the current selection. Refetches the @font-face (runs on family change);
+	// weight/italic/selector edits reuse the loaded faces. The font resolves from the first
+	// active provider that offers it (the global filter steers resolution).
 	async function commit(): Promise<void> {
 		if (!selectedFont) return;
-		const selection = buildSelection(selectedFont);
-		await applySelection(varName, selection);
-		appliedFamily = selection.family;
-		persist(selection);
-		updatePreview();
+		const provider = providerFor(selectedFont);
+		const weights = selectedFont.weights.map(String);
+		const css = await resolveCss(selectedFont.family, provider, weights, ['normal', 'italic']);
+		if (target.kind === 'var') {
+			const fallback = extractFallback(getCurrentValue(target.varName));
+			injectFontStyle(key, css);
+			document.documentElement.style.setProperty(
+				target.varName,
+				`"${selectedFont.family}", ${fallback}`,
+			);
+			persist(buildSelection(selectedFont));
+		} else {
+			faceCss = css;
+			composeElementRule();
+		}
+		appliedFamily = selectedFont.family;
 		updateButtons();
 	}
 
 	function reset(): void {
-		resetOverride(varName);
+		if (target.kind === 'var') {
+			resetOverride(target.varName);
+			const { [target.varName]: _removed, ...rest } = loadState();
+			saveState(rest);
+		} else {
+			document.head.querySelector(`style[data-font-devtools="${key}"]`)?.remove();
+		}
 		combobox.setSelectedFamily('');
 		selectedFont = undefined;
 		appliedFamily = undefined;
 		delete detail.dataset.open;
 		updateButtons();
+	}
+
+	if (target.kind === 'var') {
+		const nameEl = row.querySelector<HTMLElement>('.fdt-name')!;
+		const { varName } = target;
+		nameEl.addEventListener('mouseenter', () => {
+			tooltip.show(nameEl, getCurrentValue(varName) || '(unset)');
+		});
+		nameEl.addEventListener('mouseleave', () => {
+			tooltip.hide();
+		});
+	} else {
+		const selectorInput = row.querySelector<HTMLInputElement>('.fdt-selector')!;
+		const deleteButton = row.querySelector('[data-action="delete"]')!;
+		selectorInput.value = selector;
+		selectorInput.addEventListener('input', () => {
+			selector = selectorInput.value.trim();
+			composeElementRule();
+		});
+		// Remove the row entirely: undo its applied font, then detach (the combobox cleans up its
+		// floating dropdown via disconnectedCallback).
+		deleteButton.addEventListener('click', () => {
+			document.head.querySelector(`style[data-font-devtools="${key}"]`)?.remove();
+			row.remove();
+		});
 	}
 
 	categorySelect.addEventListener('change', () => {
@@ -323,45 +517,42 @@ function renderRow(varName: string, state: State, tooltip: Tooltip): RowHandle {
 		void commit();
 	});
 
-	// Switching provider re-resolves the same family from that provider.
-	providerSelect.addEventListener('change', () => {
-		void commit();
-	});
-
-	// Weight/italic only affect the preview sample (the page var is font-family only).
+	// Weight/italic: element rows write them into the rule; var rows can't carry them in a
+	// font-family-only custom property, so they're just remembered for next time.
 	weightSelect.addEventListener('change', () => {
-		updatePreview();
-		if (selectedFont) persist(buildSelection(selectedFont));
+		if (target.kind === 'element') composeElementRule();
+		else if (selectedFont) persist(buildSelection(selectedFont));
 	});
 	italicInput.addEventListener('change', () => {
-		updatePreview();
-		if (selectedFont) persist(buildSelection(selectedFont));
+		if (target.kind === 'element') composeElementRule();
+		else if (selectedFont) persist(buildSelection(selectedFont));
 	});
 
 	resetButton.addEventListener('click', () => {
 		reset();
-		const { [varName]: _removed, ...rest } = loadState();
-		saveState(rest);
 	});
 
 	updateButtons();
 
 	return {
 		element: row,
-		setOptions(options: Array<ComboboxOption>): void {
-			combobox.setOptions(options);
-			const saved = loadState()[varName];
+		// Re-apply a var row's saved selection once the catalog is available. Runs on first load,
+		// not on every provider-toggle refresh.
+		restore(): void {
+			if (target.kind !== 'var') return;
+			const saved = loadState()[target.varName];
 			if (!saved) return;
 			combobox.setSelectedFamily(saved.family);
 			const font = findFont(saved.family);
 			if (!font) return;
 			populatePanel(font);
-			if (saved.provider) providerSelect.value = saved.provider;
 			if (saved.weight !== undefined) weightSelect.value = String(saved.weight);
 			italicInput.checked = saved.italic ?? false;
 			appliedFamily = saved.family;
-			updatePreview();
 			updateButtons();
+		},
+		setOptions(options: Array<ComboboxOption>): void {
+			combobox.setOptions(options);
 		},
 	};
 }
