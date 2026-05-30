@@ -2,11 +2,11 @@ import type * as z from 'zod';
 
 import type { FontCategory, ProviderName } from '../types.js';
 
-/**
- * Provider responses are validated at the boundary with Zod
- * Each provider module defines a font schema covering only the fields its adapter consumes
- */
-const KNOWN_CATEGORIES = new Set(['display', 'handwriting', 'monospace', 'sans-serif', 'serif']);
+import { FONT_CATEGORIES } from '../types.js';
+
+const KNOWN_CATEGORIES = new Set<string>(
+	FONT_CATEGORIES.filter((category) => category !== 'other'),
+);
 
 export function normalizeCategory(raw: string): FontCategory {
 	const value = raw.toLowerCase().replaceAll(/\s+/g, '-');

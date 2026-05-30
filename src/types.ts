@@ -11,12 +11,15 @@ export interface CatalogFont {
 	weights: Array<number>;
 }
 
-export type FontCategory =
-	| 'display'
-	| 'handwriting'
-	| 'monospace'
-	| 'other'
-	| 'sans-serif'
-	| 'serif';
+export const FONT_CATEGORIES = [
+	'sans-serif',
+	'serif',
+	'monospace',
+	'display',
+	'handwriting',
+	'other',
+] as const;
+
+export type FontCategory = (typeof FONT_CATEGORIES)[number];
 
 export type ProviderName = 'bunny' | 'fontshare' | 'fontsource' | 'google';

@@ -5,6 +5,7 @@ import type { CatalogFont } from './types.js';
 
 import './combobox.js';
 import { createElementPicker } from './element-picker.js';
+import { FONT_CATEGORIES } from './types.js';
 
 interface Selection {
 	family: string;
@@ -23,7 +24,7 @@ const APP_ID = 'astro-font-devtools';
 const STORAGE_KEY = 'astro-font-devtools:state';
 const CATALOG_URL = '/__astro-font-devtools/catalog';
 const RESOLVE_URL = '/__astro-font-devtools/resolve';
-const CATEGORIES = ['all', 'sans-serif', 'serif', 'monospace', 'display', 'handwriting', 'other'];
+const CATEGORIES = ['all', ...FONT_CATEGORIES];
 const GENERIC_FAMILIES = new Set([
 	'cursive',
 	'fantasy',
@@ -114,6 +115,10 @@ function loadCatalog(): Promise<Array<CatalogFont>> {
 			catalog = fonts;
 			catalogPromise = undefined;
 			return fonts;
+		})
+		.catch((error: unknown) => {
+			catalogPromise = undefined; // let the next open retry instead of caching the failure
+			throw error;
 		});
 	return catalogPromise;
 }

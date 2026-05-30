@@ -44,14 +44,10 @@ export async function googleCatalog(): Promise<Array<CatalogFont>> {
 export async function googlePopularityMap(): Promise<
 	Map<string, { popularity: number; trending: number }>
 > {
-	return fetchGoogleMeta().then(
-		(fonts) =>
-			new Map(
-				fonts.map((font) => [
-					font.family,
-					{ popularity: font.popularity, trending: font.trending },
-				]),
-			),
+	const fonts = await fetchGoogleMeta();
+
+	return new Map(
+		fonts.map((font) => [font.family, { popularity: font.popularity, trending: font.trending }]),
 	);
 }
 
