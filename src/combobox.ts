@@ -1,3 +1,5 @@
+import { icons } from './icons.js';
+
 export interface ComboboxOption {
 	category: string;
 	family: string;
@@ -17,6 +19,7 @@ export class FontCombobox extends HTMLElement {
 	private activeIndex = -1;
 	private allOptions: Array<ComboboxOption> = [];
 	private category = 'all';
+	private clearButton!: HTMLButtonElement;
 	private filtered: Array<ComboboxOption> = [];
 	private input!: HTMLInputElement;
 	private list!: HTMLDivElement;
@@ -28,9 +31,11 @@ export class FontCombobox extends HTMLElement {
 		this.innerHTML = `
 			<div class="fdt-combobox">
 				<input type="text" placeholder="Type to filter..." autocomplete="off" spellcheck="false" />
+				<button type="button" class="fdt-combo-clear" aria-label="Clear font" tabindex="-1" hidden>${icons.close}</button>
 			</div>
 		`;
 		this.input = this.querySelector('input')!;
+		this.clearButton = this.querySelector('.fdt-combo-clear')!;
 
 		// The list floats free of the dev-toolbar window: it lives at the shadow-root level
 		// (outside the window's clipped, transformed box) and is positioned with fixed coordinates
@@ -51,6 +56,10 @@ export class FontCombobox extends HTMLElement {
 		this.input.addEventListener('input', () => {
 			this.openDropdown();
 			this.applyFilter();
+			this.updateClearVisibility();
+		});
+		this.clearButton.addEventListener('click', () => {
+			this.clearSelection();
 		});
 		this.input.addEventListener('change', (event) => {
 			// The input's native change event would otherwise bubble to the host and collide with
@@ -101,6 +110,7 @@ export class FontCombobox extends HTMLElement {
 
 	setSelectedFamily(family: string): void {
 		this.input.value = family;
+		this.updateClearVisibility();
 	}
 
 	private applyFilter(): void {
@@ -112,6 +122,14 @@ export class FontCombobox extends HTMLElement {
 		this.sizer.style.height = `${String(this.filtered.length * rowHeight)}px`;
 		this.list.scrollTop = 0;
 		this.renderWindow();
+	}
+
+	private clearSelection(): void {
+		this.input.value = '';
+		this.closeDropdown();
+		this.updateClearVisibility();
+		this.dispatchEvent(new CustomEvent('clear'));
+		this.input.blur();
 	}
 
 	private closeDropdown(): void {
@@ -226,10 +244,15 @@ export class FontCombobox extends HTMLElement {
 		const option = this.filtered[index];
 		if (!option) return;
 		this.input.value = option.family;
+		this.updateClearVisibility();
 		this.closeDropdown();
 		this.dispatchEvent(new CustomEvent<ComboboxOption>('change', { detail: option }));
 		// Drop focus so the next click on the input re-opens the dropdown to pick another font.
 		this.input.blur();
+	}
+
+	private updateClearVisibility(): void {
+		this.clearButton.hidden = this.input.value === '';
 	}
 }
 

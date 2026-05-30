@@ -45,6 +45,9 @@ async function assembleCatalog(providers: Array<ProviderName>): Promise<Array<Ca
 				for (const provider of font.providers) {
 					if (!existing.providers.includes(provider)) existing.providers.push(provider);
 				}
+				for (const script of font.scripts) {
+					if (!existing.scripts.includes(script)) existing.scripts.push(script);
+				}
 				continue;
 			}
 			if (font.popularity === undefined) {

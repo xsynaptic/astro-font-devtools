@@ -20,12 +20,13 @@ export async function fontsourceCatalog(): Promise<Array<CatalogFont>> {
 	const list = fontsourceListSchema.parse(await response.json());
 
 	return parseFonts(list, fontsourceFontSchema, 'fontsource')
-		.filter((font) => font.subsets.includes('latin') && font.category !== 'icons')
+		.filter((font) => font.category !== 'icons')
 		.map((font) => ({
 			category: normalizeCategory(font.category),
 			family: font.family,
 			italic: font.styles.includes('italic'),
 			providers: ['fontsource'],
+			scripts: font.subsets,
 			variable: font.variable,
 			weights: font.weights,
 		}));

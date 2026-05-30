@@ -7,6 +7,7 @@ import { normalizeCategory, parseFonts } from './shared.js';
 const fontshareFontSchema = z.object({
 	category: z.string(),
 	name: z.string(),
+	script: z.string(),
 	styles: z.array(
 		z.object({
 			is_italic: z.boolean(),
@@ -24,10 +25,8 @@ type FontshareFont = z.infer<typeof fontshareFontSchema>;
 
 export async function fontshareCatalog(): Promise<Array<CatalogFont>> {
 	const fonts: Array<FontshareFont> = [];
-	/**
-	 * Fontshare's `offset` counts items, not pages, so advance by however many fonts the page
-	 * actually returned; keep going until the API reports no more or returns an empty page
-	 */
+	// Fontshare's `offset` counts items, not pages, so advance by however many fonts the page
+	// actually returned; keep going until the API reports no more or returns an empty page.
 	let offset = 0;
 	let hasMore = true;
 
@@ -53,6 +52,7 @@ export async function fontshareCatalog(): Promise<Array<CatalogFont>> {
 			family: font.name,
 			italic: font.styles.some((style) => style.is_italic),
 			providers: ['fontshare'],
+			scripts: [font.script],
 			variable: font.styles.some((style) => style.is_variable),
 			weights,
 		};

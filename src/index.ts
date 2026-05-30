@@ -10,7 +10,7 @@ interface Options {
 	/** Which font providers to browse. Defaults to Fontsource only. */
 	providers?: Array<ProviderName>;
 	/** Targets pre-loaded as rows: CSS custom properties (e.g. `--font-display`) or selectors
-	 * (e.g. `h1`, `.hero`). Optional — targets can also be added from the toolbar at runtime. */
+	 * (e.g. `h1`, `.hero`). Optional; targets can also be added from the toolbar at runtime. */
 	targets?: Array<string>;
 }
 
@@ -37,7 +37,7 @@ export default function fontDevtools(options: Options = {}): AstroIntegration {
 			'astro:server:setup': ({ server, toolbar }) => {
 				server.middlewares.use('/__astro-font-devtools/catalog', createCatalogHandler(providers));
 				server.middlewares.use('/__astro-font-devtools/resolve', createResolveHandler(providers));
-				toolbar.on(`${appId}:init`, () => {
+				toolbar.onAppInitialized(appId, () => {
 					toolbar.send(`${appId}:config`, { targets });
 				});
 			},

@@ -1,12 +1,15 @@
 import { defineToolbarApp } from 'astro/toolbar';
 
 import type { ComboboxOption, FontCombobox } from './combobox.js';
+import type { FontScriptSelect } from './script-select.js';
 import type { CatalogFont } from './types.js';
 
 import './combobox.js';
+import './script-select.js';
 import { rowHeight } from './combobox.js';
 import { createElementPicker } from './element-picker.js';
 import { icons } from './icons.js';
+import { sortedScripts, toBaseScripts } from './scripts.js';
 import { fontCategories } from './types.js';
 
 interface Selection {
@@ -52,7 +55,7 @@ interface RowHandle {
 	setOptions(options: Array<ComboboxOption>): void;
 }
 
-function applyWindowPlacement(canvas: ShadowRoot, placement: null | string | undefined): void {
+function applyWindowPlacement(canvas: ShadowRoot, placement: string | undefined): void {
 	if (!placement) return;
 	canvas.querySelector('astro-dev-toolbar-window')?.setAttribute('placement', placement);
 }
@@ -90,6 +93,8 @@ function forgetSelection(target: string): void {
 	saveState(state);
 }
 
+// No public API exposes the toolbar's placement on load (only the change event fires later), so read
+// it off Astro's own toolbar root to anchor our window on the correct side the first time.
 function getToolbarPlacement(): string | undefined {
 	const toolbar = document.querySelector('astro-dev-toolbar');
 	if (!toolbar?.shadowRoot) return undefined;
@@ -154,41 +159,56 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 				.fdt-rmain { display: grid; grid-template-columns: minmax(0, 1fr) 7rem minmax(0, 1fr) auto auto auto; gap: 0.4rem; align-items: center; }
 				.fdt-rmain > * { min-width: 0; }
 				.fdt-target { width: 100%; box-sizing: border-box; font-family: ui-monospace, monospace; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.25rem 0.5rem; }
-				.fdt-target:focus { outline: 2px solid rgba(125, 125, 255, 0.4); outline-offset: -1px; }
+				.fdt-target:focus { outline: 2px solid rgba(113, 24, 226, 0.4); outline-offset: -1px; }
 				.fdt-category { width: 100%; box-sizing: border-box; font: inherit; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.25rem 0.4rem; }
 				.fdt-iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 1.4rem; height: 1.4rem; box-sizing: border-box; padding: 0; font-size: 0.9rem; cursor: pointer; border-radius: 0.25rem; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.45); }
 				.fdt-iconbtn:not([disabled]):hover { color: rgba(255, 255, 255, 0.8); }
-				.fdt-italic[aria-pressed="true"] { background: rgba(125, 125, 255, 0.25); border-color: rgba(125, 125, 255, 0.5); color: #fff; }
+				.fdt-italic[aria-pressed="true"] { background: rgba(113, 24, 226, 0.25); border-color: rgba(113, 24, 226, 0.5); color: #fff; }
 				.fdt-iconbtn[disabled] { opacity: 0.4; cursor: default; }
 				.fdt-iconbtn svg { width: 0.8em; height: 0.8em; }
 				.fdt-select { width: 3.75rem; box-sizing: border-box; font: inherit; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.2rem 0.3rem; }
 				.fdt-select:disabled { opacity: 0.4; }
 				.fdt-combobox { position: relative; }
-				.fdt-combobox input { width: 100%; font: inherit; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.25rem 0.5rem; box-sizing: border-box; }
-				.fdt-combobox input:focus { outline: 2px solid rgba(125, 125, 255, 0.4); outline-offset: -1px; }
+				.fdt-combobox input { width: 100%; font: inherit; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.25rem 1.5rem 0.25rem 0.5rem; box-sizing: border-box; }
+				.fdt-combobox input:focus { outline: 2px solid rgba(113, 24, 226, 0.4); outline-offset: -1px; }
+				.fdt-combo-clear { position: absolute; top: 50%; right: 0.3rem; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; width: 1.1rem; height: 1.1rem; padding: 0; border: 0; border-radius: 0.2rem; background: transparent; color: rgba(255, 255, 255, 0.4); cursor: pointer; }
+				.fdt-combo-clear:hover { color: rgba(255, 255, 255, 0.85); }
+				.fdt-combo-clear[hidden] { display: none; }
+				.fdt-combo-clear svg { width: 0.75em; height: 0.75em; }
 				.fdt-dropdown { position: fixed; z-index: 2147483647; margin: 0; padding: 0; list-style: none; overflow-y: auto; background: #1f1f24; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; font-family: system-ui, sans-serif; font-size: 0.8125rem; color: rgba(255, 255, 255, 0.86); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.22) transparent; }
 				.fdt-dropdown::-webkit-scrollbar, #fdt-rows::-webkit-scrollbar { width: 10px; background: transparent; }
 				.fdt-dropdown::-webkit-scrollbar-thumb, #fdt-rows::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 5px; border: 3px solid transparent; background-clip: padding-box; }
 				.fdt-dropdown::-webkit-scrollbar-thumb:hover, #fdt-rows::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.32); background-clip: padding-box; }
 				.fdt-sizer { position: relative; width: 100%; }
 				.fdt-option { position: absolute; left: 0; right: 0; height: ${String(rowHeight)}px; box-sizing: border-box; padding: 0 0.5rem; display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
-				.fdt-option:hover, .fdt-option.fdt-active { background: rgba(125, 125, 255, 0.2); }
+				.fdt-option:hover, .fdt-option.fdt-active { background: rgba(113, 24, 226, 0.2); }
 				.fdt-fam { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-				.fdt-var { flex: none; font-size: 0.625rem; font-weight: 600; letter-spacing: 0.03em; padding: 0 0.3em; border-radius: 0.2rem; background: rgba(125, 125, 255, 0.25); color: rgba(255, 255, 255, 0.85); }
+				.fdt-var { flex: none; font-size: 0.625rem; font-weight: 600; letter-spacing: 0.03em; padding: 0 0.3em; border-radius: 0.2rem; background: rgba(113, 24, 226, 0.25); color: rgba(255, 255, 255, 0.85); }
 				.fdt-disabled { opacity: 0.4; pointer-events: none; }
 				.fdt-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
-				.fdt-providers { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-left: auto; }
+				#fdt-rows:empty + .fdt-foot { margin-top: 0; padding-top: 0; border-top: 0; }
+				.fdt-providers { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
 				.fdt-providers[hidden] { display: none; }
 				.fdt-providers-label { font-size: 0.7rem; color: rgba(255, 255, 255, 0.4); margin-right: 0.1rem; }
-				.fdt-provider { font: inherit; font-size: 0.7rem; cursor: pointer; padding: 0.15rem 0.45rem; border-radius: 0.25rem; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.45); }
-				.fdt-provider[aria-pressed="true"] { background: rgba(125, 125, 255, 0.25); border-color: rgba(125, 125, 255, 0.5); color: #fff; }
+				astro-dev-toolbar-button:hover { filter: brightness(1.15); background: rgba(255, 255, 255, 0.07); border-radius: 0.25rem; }
+				.fdt-scripts { margin-left: auto; }
+				.fdt-scripts[hidden] { display: none; }
+				.fdt-scripts-panel { position: fixed; z-index: 2147483647; display: flex; flex-direction: column; min-width: 13rem; overflow: hidden; background: #1f1f24; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); font-family: system-ui, sans-serif; font-size: 0.8125rem; color: rgba(255, 255, 255, 0.86); }
+				.fdt-scripts-panel[hidden] { display: none; }
+				.fdt-scripts-head { display: flex; gap: 0.3rem; padding: 0.4rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+				.fdt-scripts-search { flex: 1; min-width: 0; font: inherit; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.2rem 0.4rem; box-sizing: border-box; }
+				.fdt-scripts-clear { font: inherit; font-size: 0.7rem; cursor: pointer; padding: 0 0.45rem; border-radius: 0.25rem; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.6); }
+				.fdt-scripts-list { overflow-y: auto; padding: 0.25rem; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.22) transparent; }
+				.fdt-scripts-item { display: flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0.35rem; border-radius: 0.2rem; cursor: pointer; }
+				.fdt-scripts-item:hover { background: rgba(113, 24, 226, 0.2); }
 			</style>
 			<div class="fdt-panel">
 				<div id="fdt-rows"></div>
 				<div class="fdt-foot">
-					<astro-dev-toolbar-button id="fdt-pick" button-style="outline" size="small">Pick an element</astro-dev-toolbar-button>
-					<astro-dev-toolbar-button id="fdt-add" button-style="outline" size="small">Add target</astro-dev-toolbar-button>
+					<astro-dev-toolbar-button id="fdt-pick" button-style="purple" size="small">Pick Element</astro-dev-toolbar-button>
+					<astro-dev-toolbar-button id="fdt-add" button-style="purple" size="small">Add Target</astro-dev-toolbar-button>
 					<span id="fdt-status" class="fdt-status">Loading fonts...</span>
+					<font-script-select id="fdt-scripts" class="fdt-scripts" hidden></font-script-select>
 					<div id="fdt-providers" class="fdt-providers" hidden></div>
 				</div>
 			</div>
@@ -205,9 +225,11 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 	const pickButton = canvas.querySelector('#fdt-pick');
 	const addButton = canvas.querySelector('#fdt-add');
 	const providersEl = canvas.querySelector<HTMLElement>('#fdt-providers');
+	const scriptSelect = canvas.querySelector<FontScriptSelect>('#fdt-scripts');
 	if (!rows || !status || !pickButton || !addButton) return;
 
 	const active = new Set<string>();
+	const activeScripts = new Set<string>(['latin']);
 	const providerFor = (font: CatalogFont): string | undefined =>
 		font.providers.find((provider) => active.has(provider));
 
@@ -230,7 +252,7 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 
 	const hint = document.createElement('p');
 	hint.className = 'fdt-empty';
-	hint.textContent = 'No targets yet — Pick an element or Add a target.';
+	hint.textContent = 'No targets yet. Pick an element or Add a target.';
 	if (initialTargets.length === 0) rows.append(hint);
 
 	addButton.addEventListener('click', () => {
@@ -260,6 +282,11 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 		const computeOptions = (): Array<ComboboxOption> =>
 			fonts
 				.filter((font) => font.providers.some((provider) => active.has(provider)))
+				.filter(
+					(font) =>
+						activeScripts.size === 0 ||
+						toBaseScripts(font.scripts).every((script) => activeScripts.has(script)),
+				)
 				.map((font) => ({ category: font.category, family: font.family, variable: font.variable }));
 
 		function refreshOptions(): void {
@@ -281,6 +308,19 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 		if (providersEl && available.length > 1) {
 			renderProviderToggles(providersEl, available, active, refreshOptions);
 		}
+
+		const scriptVocab = sortedScripts(fonts);
+		if (scriptSelect && scriptVocab.length > 1) {
+			scriptSelect.hidden = false;
+			scriptSelect.setAvailable(scriptVocab);
+			scriptSelect.setSelected([...activeScripts]);
+			scriptSelect.addEventListener('change', (event) => {
+				const { selected } = (event as CustomEvent<{ selected: Array<string> }>).detail;
+				activeScripts.clear();
+				for (const script of selected) activeScripts.add(script);
+				refreshOptions();
+			});
+		}
 	});
 }
 
@@ -295,22 +335,22 @@ function renderProviderToggles(
 	container.innerHTML = `<span class="fdt-providers-label">Providers</span>${providers
 		.map(
 			(provider) =>
-				`<button class="fdt-provider" type="button" data-provider="${provider}" aria-pressed="true">${provider}</button>`,
+				`<astro-dev-toolbar-button data-provider="${provider}" button-style="gray" size="small">${provider}</astro-dev-toolbar-button>`,
 		)
 		.join('')}`;
 	container.hidden = false;
 	for (const provider of providers) {
-		const button = container.querySelector<HTMLButtonElement>(`[data-provider="${provider}"]`);
+		const button = container.querySelector<HTMLElement>(`[data-provider="${provider}"]`);
 		if (!button) continue;
 		button.addEventListener('click', () => {
-			const pressed = button.getAttribute('aria-pressed') === 'true';
-			if (pressed && active.size === 1) return; // never leave the catalog empty
-			if (pressed) {
+			const isActive = active.has(provider);
+			if (isActive && active.size === 1) return; // never leave the catalog empty
+			if (isActive) {
 				active.delete(provider);
-				button.setAttribute('aria-pressed', 'false');
+				button.setAttribute('button-style', 'ghost');
 			} else {
 				active.add(provider);
-				button.setAttribute('aria-pressed', 'true');
+				button.setAttribute('button-style', 'gray');
 			}
 			onChange();
 		});
@@ -345,7 +385,7 @@ function renderRow(
 	`;
 
 	const targetInput = row.querySelector<HTMLInputElement>('.fdt-target')!;
-	const deleteButton = row.querySelector('[data-action="delete"]')!;
+	const deleteButton = row.querySelector<HTMLButtonElement>('[data-action="delete"]')!;
 	const categorySelect = row.querySelector<HTMLSelectElement>('.fdt-category')!;
 	const combobox = row.querySelector<FontCombobox>('font-combobox')!;
 	const weightSelect = row.querySelector<HTMLSelectElement>('[data-control="weight"]')!;
@@ -364,7 +404,7 @@ function renderRow(
 		setItalic(false);
 	}
 	// Weight/italic can't affect a CSS variable (it only carries the family, and we don't control
-	// where it's used), so they stay frozen for --var targets — only selector rows apply them.
+	// where it's used), so they stay frozen for --var targets; only selector rows apply them.
 	function syncControlAvailability(): void {
 		if (!selectedFont) return;
 		const variable = isVarTarget(target);
@@ -480,6 +520,13 @@ function renderRow(
 	combobox.addEventListener('change', (event) => {
 		void chooseFont((event as CustomEvent<ComboboxOption>).detail.family);
 	});
+	combobox.addEventListener('clear', () => {
+		clearApplication();
+		if (target) forgetSelection(target);
+		selectedFont = undefined;
+		faceCss = '';
+		freezeControls();
+	});
 
 	weightSelect.addEventListener('change', () => {
 		applyNow();
@@ -564,6 +611,10 @@ function syncAdded(oldTarget: string, newTarget: string): void {
 }
 
 export default defineToolbarApp({
+	beforeTogglingOff() {
+		activePicker?.stop();
+		return true;
+	},
 	init(canvas, app, server) {
 		let configuredTargets: Array<string> | undefined;
 
@@ -576,10 +627,8 @@ export default defineToolbarApp({
 			configuredTargets = targets;
 			setup(targets);
 		});
-		server.send(`${appId}:init`, {});
-
-		app.addEventListener('placement-updated', (event) => {
-			applyWindowPlacement(canvas, (event as CustomEvent<{ placement: string }>).detail.placement);
+		app.onToolbarPlacementUpdated(({ placement }) => {
+			applyWindowPlacement(canvas, placement);
 		});
 
 		document.addEventListener('astro:after-swap', () => {

@@ -10,6 +10,7 @@ const googleFontSchema = z.object({
 	family: z.string(),
 	fonts: z.record(z.string(), z.unknown()), // Keyed by weight
 	popularity: z.number(),
+	subsets: z.array(z.string()),
 	trending: z.number(),
 });
 
@@ -28,6 +29,7 @@ export async function googleCatalog(): Promise<Array<CatalogFont>> {
 			family: font.family,
 			italic: Object.keys(font.fonts).some((key) => key.endsWith('i')),
 			providers: ['google'],
+			scripts: font.subsets,
 			variable: font.axes.length > 0,
 			weights: googleWeights(font.fonts),
 		};

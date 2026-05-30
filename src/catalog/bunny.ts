@@ -9,6 +9,7 @@ const bunnyFontSchema = z.object({
 	familyName: z.string(),
 	isVariable: z.boolean(),
 	styles: z.array(z.string()),
+	variants: z.record(z.string(), z.unknown()),
 	weights: z.array(z.number()),
 });
 const bunnyListSchema = z.record(z.string(), z.unknown());
@@ -22,6 +23,7 @@ export async function bunnyCatalog(): Promise<Array<CatalogFont>> {
 		family: font.familyName,
 		italic: font.styles.includes('italic'),
 		providers: ['bunny'],
+		scripts: Object.keys(font.variants),
 		variable: font.isVariable,
 		weights: font.weights,
 	}));
