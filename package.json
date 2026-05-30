@@ -1,13 +1,33 @@
 {
 	"name": "@xsynaptic/astro-font-devtools",
 	"version": "0.0.1",
+	"description": "An Astro dev toolbar plugin for previewing fonts from Google, Fontsource, Bunny, and Fontshare live on your site.",
+	"keywords": [
+		"astro",
+		"astro-integration",
+		"withastro",
+		"dev-toolbar",
+		"fonts",
+		"web-fonts",
+		"google-fonts",
+		"fontsource"
+	],
+	"homepage": "https://github.com/xsynaptic/astro-font-devtools#readme",
+	"bugs": "https://github.com/xsynaptic/astro-font-devtools/issues",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/xsynaptic/astro-font-devtools.git"
+	},
+	"license": "MIT",
+	"author": "Alexander Synaptic <x@spectralcodex.com>",
 	"private": true,
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
 	},
 	"files": [
-		"dist"
+		"dist",
+		"src"
 	],
 	"publishConfig": {
 		"exports": {
@@ -15,14 +35,17 @@
 				"types": "./dist/index.d.mts",
 				"import": "./dist/index.mjs"
 			}
-		}
+		},
+		"main": "./dist/index.mjs",
+		"types": "./dist/index.d.mts"
 	},
 	"scripts": {
 		"build": "tsdown",
 		"check": "tsc --noEmit",
 		"format": "prettier --write . && eslint . --fix && tsc --noEmit && knip",
 		"knip": "knip",
-		"lint": "eslint ."
+		"lint": "eslint .",
+		"prepublishOnly": "pnpm build"
 	},
 	"dependencies": {
 		"unifont": "^0.7.4",
