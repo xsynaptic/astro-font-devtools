@@ -6,6 +6,7 @@ import type { CatalogFont } from './types.js';
 import './combobox.js';
 import { rowHeight } from './combobox.js';
 import { createElementPicker } from './element-picker.js';
+import { icons } from './icons.js';
 import { fontCategories } from './types.js';
 
 interface Selection {
@@ -146,30 +147,36 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 				.fdt-panel { font-family: system-ui, sans-serif; min-width: 34rem; }
 				.fdt-status { font-size: 0.8125rem; color: rgba(255, 255, 255, 0.5); padding: 0.25rem 0; }
 				.fdt-empty { color: rgba(255, 255, 255, 0.6); font-size: 0.875rem; }
-				#fdt-rows { max-height: min(60vh, 28rem); overflow-y: auto; }
-				.fdt-row { padding: 0.5rem 0; border-top: 1px solid rgba(255, 255, 255, 0.08); }
-				.fdt-row:first-of-type { border-top: 0; }
+				#fdt-rows { max-height: min(60vh, 28rem); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.22) transparent; }
+				.fdt-row { padding: 0.3rem 0; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+				.fdt-row:first-of-type { border-top: 0; padding-top: 0; }
+				.fdt-row:last-of-type { padding-bottom: 0; }
 				.fdt-rmain { display: grid; grid-template-columns: minmax(0, 1fr) 7rem minmax(0, 1fr) auto auto auto; gap: 0.4rem; align-items: center; }
 				.fdt-rmain > * { min-width: 0; }
 				.fdt-target { width: 100%; box-sizing: border-box; font-family: ui-monospace, monospace; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.25rem 0.5rem; }
 				.fdt-target:focus { outline: 2px solid rgba(125, 125, 255, 0.4); outline-offset: -1px; }
 				.fdt-category { width: 100%; box-sizing: border-box; font: inherit; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.25rem 0.4rem; }
-				.fdt-italic { min-width: 1.9em; box-sizing: border-box; font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 0.9rem; line-height: 1; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 0.25rem; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.5); }
+				.fdt-iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 1.4rem; height: 1.4rem; box-sizing: border-box; padding: 0; font-size: 0.9rem; cursor: pointer; border-radius: 0.25rem; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.45); }
+				.fdt-iconbtn:not([disabled]):hover { color: rgba(255, 255, 255, 0.8); }
 				.fdt-italic[aria-pressed="true"] { background: rgba(125, 125, 255, 0.25); border-color: rgba(125, 125, 255, 0.5); color: #fff; }
-				.fdt-italic[disabled] { opacity: 0.4; cursor: default; }
-				.fdt-select { min-width: 2.5rem; box-sizing: border-box; font: inherit; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.2rem 0.3rem; }
+				.fdt-iconbtn[disabled] { opacity: 0.4; cursor: default; }
+				.fdt-iconbtn svg { width: 0.8em; height: 0.8em; }
+				.fdt-select { width: 3.75rem; box-sizing: border-box; font: inherit; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.2rem 0.3rem; }
 				.fdt-select:disabled { opacity: 0.4; }
 				.fdt-combobox { position: relative; }
 				.fdt-combobox input { width: 100%; font: inherit; font-size: 0.8125rem; background: rgba(255, 255, 255, 0.08); color: inherit; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; padding: 0.25rem 0.5rem; box-sizing: border-box; }
 				.fdt-combobox input:focus { outline: 2px solid rgba(125, 125, 255, 0.4); outline-offset: -1px; }
-				.fdt-dropdown { position: fixed; z-index: 2147483647; margin: 0; padding: 0; list-style: none; overflow-y: auto; background: #1f1f24; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; font-family: system-ui, sans-serif; font-size: 0.8125rem; color: rgba(255, 255, 255, 0.86); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); }
+				.fdt-dropdown { position: fixed; z-index: 2147483647; margin: 0; padding: 0; list-style: none; overflow-y: auto; background: #1f1f24; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0.25rem; font-family: system-ui, sans-serif; font-size: 0.8125rem; color: rgba(255, 255, 255, 0.86); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.22) transparent; }
+				.fdt-dropdown::-webkit-scrollbar, #fdt-rows::-webkit-scrollbar { width: 10px; background: transparent; }
+				.fdt-dropdown::-webkit-scrollbar-thumb, #fdt-rows::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 5px; border: 3px solid transparent; background-clip: padding-box; }
+				.fdt-dropdown::-webkit-scrollbar-thumb:hover, #fdt-rows::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.32); background-clip: padding-box; }
 				.fdt-sizer { position: relative; width: 100%; }
 				.fdt-option { position: absolute; left: 0; right: 0; height: ${String(rowHeight)}px; box-sizing: border-box; padding: 0 0.5rem; display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
 				.fdt-option:hover, .fdt-option.fdt-active { background: rgba(125, 125, 255, 0.2); }
 				.fdt-fam { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 				.fdt-var { flex: none; font-size: 0.625rem; font-weight: 600; letter-spacing: 0.03em; padding: 0 0.3em; border-radius: 0.2rem; background: rgba(125, 125, 255, 0.25); color: rgba(255, 255, 255, 0.85); }
 				.fdt-disabled { opacity: 0.4; pointer-events: none; }
-				.fdt-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+				.fdt-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 				.fdt-providers { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-left: auto; }
 				.fdt-providers[hidden] { display: none; }
 				.fdt-providers-label { font-size: 0.7rem; color: rgba(255, 255, 255, 0.4); margin-right: 0.1rem; }
@@ -191,7 +198,7 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 	// The dev-toolbar window hard-codes 24px padding on its :host; an inline style reclaims space.
 	canvas
 		.querySelector<HTMLElement>('astro-dev-toolbar-window')
-		?.style.setProperty('padding', '0.75rem');
+		?.style.setProperty('padding', '0.5rem 0.75rem');
 
 	const rows = canvas.querySelector('#fdt-rows');
 	const status = canvas.querySelector('#fdt-status');
@@ -332,8 +339,8 @@ function renderRow(
 			<select class="fdt-category" id="fdt-category-${rowId}" aria-label="Filter by category">${categories.map((category) => `<option value="${category}">${category}</option>`).join('')}</select>
 			<font-combobox></font-combobox>
 			<select data-control="weight" class="fdt-select" aria-label="Font weight" disabled></select>
-			<button data-control="italic" class="fdt-italic" type="button" aria-pressed="false" aria-label="Toggle italic" disabled>I</button>
-			<astro-dev-toolbar-button data-action="delete" button-style="outline" size="small" aria-label="Remove this row">✕</astro-dev-toolbar-button>
+			<button data-control="italic" class="fdt-iconbtn fdt-italic" type="button" aria-pressed="false" aria-label="Toggle italic" disabled>${icons.italic}</button>
+			<button data-action="delete" class="fdt-iconbtn" type="button" aria-label="Remove this row">${icons.close}</button>
 		</div>
 	`;
 

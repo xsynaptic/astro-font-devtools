@@ -3,6 +3,7 @@ import type { AstroIntegration } from 'astro';
 import type { ProviderName } from './types.js';
 
 import { createCatalogHandler } from './catalog/index.js';
+import { icons } from './icons.js';
 import { createResolveHandler } from './resolve.js';
 
 interface Options {
@@ -28,7 +29,7 @@ export default function fontDevtools(options: Options = {}): AstroIntegration {
 						import.meta.url.endsWith('.ts') ? 'toolbar.ts' : 'toolbar.mjs',
 						import.meta.url,
 					),
-					icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><text x="8" y="13" font-family="serif" font-size="14" font-weight="700" text-anchor="middle" fill="currentColor">Aa</text></svg>`,
+					icon: icons.font,
 					id: appId,
 					name: 'Font Devtools',
 				});
