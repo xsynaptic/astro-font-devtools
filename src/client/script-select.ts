@@ -6,10 +6,12 @@ const minPanelHeight = 140;
 // A multi-select checkbox dropdown for scripts. Lives in the toolbar's bottom bar; its panel
 // floats free at the shadow-root level (like the combobox) so it escapes the window's clipped box
 // and opens upward. Emits a `change` CustomEvent ({ selected: string[] }) when the selection moves.
-export class FontScriptSelect extends HTMLElement {
+class FontScriptSelect extends HTMLElement {
 	private available: Array<string> = [];
+	private controller: AbortController | undefined;
 	private list!: HTMLDivElement;
 	private panel!: HTMLDivElement;
+	private ready = false;
 	private root!: ShadowRoot;
 	private search!: HTMLInputElement;
 	private selected = new Set<string>();
@@ -55,44 +57,65 @@ export class FontScriptSelect extends HTMLElement {
 		this.list = list;
 		this.root.append(this.panel);
 
-		this.trigger.addEventListener('click', () => {
-			if (this.panel.hidden) this.open();
-			else this.close();
-		});
+		this.controller = new AbortController();
+		const { signal } = this.controller;
 
-		this.search.addEventListener('input', () => {
-			this.renderList();
-		});
+		this.trigger.addEventListener(
+			'click',
+			() => {
+				if (this.panel.hidden) this.open();
+				else this.close();
+			},
+			{ signal },
+		);
 
-		clearButton.addEventListener('click', () => {
-			this.selected.clear();
-			this.renderList();
-			this.updateTrigger();
-			this.emit();
-		});
+		this.search.addEventListener(
+			'input',
+			() => {
+				this.renderList();
+			},
+			{ signal },
+		);
 
-		this.list.addEventListener('change', (event) => {
-			const checkbox = event.target;
-			if (!(checkbox instanceof HTMLInputElement)) return;
-			const script = checkbox.dataset.script;
-			if (!script) return;
-			if (checkbox.checked) this.selected.add(script);
-			else this.selected.delete(script);
-			this.updateTrigger();
-			this.emit();
-		});
+		clearButton.addEventListener(
+			'click',
+			() => {
+				this.selected.clear();
+				this.renderList();
+				this.updateTrigger();
+				this.emit();
+			},
+			{ signal },
+		);
 
-		document.addEventListener('click', this.onDocumentClick, { capture: true });
-		globalThis.addEventListener('resize', this.reposition);
-		this.root.addEventListener('scroll', this.reposition, true);
+		this.list.addEventListener(
+			'change',
+			(event) => {
+				const checkbox = event.target;
+				if (!(checkbox instanceof HTMLInputElement)) return;
+				const script = checkbox.dataset.script;
+				if (!script) return;
+				if (checkbox.checked) this.selected.add(script);
+				else this.selected.delete(script);
+				this.updateTrigger();
+				this.emit();
+			},
+			{ signal },
+		);
+
+		document.addEventListener('click', this.onDocumentClick, { capture: true, signal });
+		globalThis.addEventListener('resize', this.reposition, { signal });
+		this.root.addEventListener('scroll', this.reposition, { capture: true, passive: true, signal });
+
+		this.renderList();
 		this.updateTrigger();
+		this.ready = true;
 	}
 
 	disconnectedCallback(): void {
+		this.controller?.abort();
 		this.panel.remove();
-		document.removeEventListener('click', this.onDocumentClick, { capture: true });
-		globalThis.removeEventListener('resize', this.reposition);
-		this.root.removeEventListener('scroll', this.reposition, true);
+		this.ready = false;
 	}
 
 	getSelected(): Array<string> {
@@ -101,12 +124,14 @@ export class FontScriptSelect extends HTMLElement {
 
 	setAvailable(scripts: Array<string>): void {
 		this.available = scripts;
+		if (!this.ready) return;
 		this.renderList();
 		this.updateTrigger();
 	}
 
 	setSelected(scripts: Array<string>): void {
 		this.selected = new Set(scripts);
+		if (!this.ready) return;
 		this.renderList();
 		this.updateTrigger();
 	}
@@ -188,6 +213,12 @@ export class FontScriptSelect extends HTMLElement {
 
 		this.trigger.textContent =
 			count > 1 ? `${scriptLabel(first)} +${String(count - 1)}` : scriptLabel(first);
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'font-script-select': FontScriptSelect;
 	}
 }
 

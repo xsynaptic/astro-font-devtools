@@ -1,8 +1,7 @@
 import { defineToolbarApp } from 'astro/toolbar';
 import * as z from 'zod';
 
-import type { ComboboxOption, FontCombobox } from './client/combobox.js';
-import type { FontScriptSelect } from './client/script-select.js';
+import type { ComboboxOption } from './client/combobox.js';
 import type { CatalogFont } from './shared/types.js';
 
 import './client/combobox.js';
@@ -197,7 +196,7 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 	const pickButton = canvas.querySelector('#fdt-pick');
 	const addButton = canvas.querySelector('#fdt-add');
 	const providersEl = canvas.querySelector<HTMLElement>('#fdt-providers');
-	const scriptSelect = canvas.querySelector<FontScriptSelect>('#fdt-scripts');
+	const scriptSelect = canvas.querySelector('font-script-select');
 	if (!rows || !status || !pickButton || !addButton) return;
 
 	const active = new Set<string>();
@@ -392,7 +391,7 @@ function renderRow(
 	const targetInputEl = row.querySelector<HTMLInputElement>('.fdt-target');
 	const deleteButtonEl = row.querySelector<HTMLButtonElement>('[data-action="delete"]');
 	const categorySelectEl = row.querySelector<HTMLSelectElement>('.fdt-category');
-	const comboboxEl = row.querySelector<FontCombobox>('font-combobox');
+	const comboboxEl = row.querySelector('font-combobox');
 	const weightSelectEl = row.querySelector<HTMLSelectElement>('[data-control="weight"]');
 	const italicButtonEl = row.querySelector<HTMLButtonElement>('[data-control="italic"]');
 	if (

@@ -12,6 +12,8 @@ export const rowHeight = 26; // px per row; the .fdt-option CSS height in toolba
 const bufferRows = 6; // extra rows rendered above and below the visible window
 const minDropdownHeight = 120;
 
+let comboboxCount = 0;
+
 // Row markup, cloned per visible option. Filling via textContent keeps family names injection-safe.
 const rowTemplate = document.createElement('template');
 rowTemplate.innerHTML = html`
@@ -20,22 +22,38 @@ rowTemplate.innerHTML = html`
 	</div>
 `;
 
-export class FontCombobox extends HTMLElement {
+class FontCombobox extends HTMLElement {
 	private activeIndex = -1;
 	private allOptions: Array<ComboboxOption> = [];
+	private blurTimer: ReturnType<typeof setTimeout> | undefined;
 	private category = 'all';
 	private clearButton!: HTMLButtonElement;
+	private controller: AbortController | undefined;
 	private filtered: Array<ComboboxOption> = [];
 	private input!: HTMLInputElement;
 	private list!: HTMLDivElement;
-	private rafPending = false;
+	private rafId: number | undefined;
+	private ready = false;
 	private root!: ShadowRoot;
+	private selectedFamily = '';
 	private sizer!: HTMLDivElement;
+	private readonly uid = ++comboboxCount;
 
 	connectedCallback(): void {
+		const listId = `fdt-listbox-${String(this.uid)}`;
 		this.innerHTML = html`
 			<div class="fdt-combobox">
-				<input type="text" placeholder="Type to filter..." autocomplete="off" spellcheck="false" />
+				<input
+					type="text"
+					role="combobox"
+					aria-label="Font family"
+					aria-autocomplete="list"
+					aria-expanded="false"
+					aria-controls="${listId}"
+					placeholder="Type to filter..."
+					autocomplete="off"
+					spellcheck="false"
+				/>
 				<button type="button" class="fdt-combo-clear" aria-label="Clear font" tabindex="-1" hidden>
 					${icons.close}
 				</button>
@@ -52,6 +70,7 @@ export class FontCombobox extends HTMLElement {
 		// so it can open up or down and use the full viewport height.
 		this.root = this.getRootNode() as ShadowRoot;
 		this.list = document.createElement('div');
+		this.list.id = listId;
 		this.list.className = 'fdt-dropdown';
 		this.list.setAttribute('role', 'listbox');
 		this.list.hidden = true;
@@ -63,63 +82,106 @@ export class FontCombobox extends HTMLElement {
 		this.list.append(this.sizer);
 		this.root.append(this.list);
 
-		this.input.addEventListener('input', () => {
-			this.openDropdown();
-			this.applyFilter();
+		this.controller = new AbortController();
+		const { signal } = this.controller;
+
+		this.input.addEventListener(
+			'input',
+			() => {
+				this.openDropdown();
+				this.applyFilter();
+				this.updateClearVisibility();
+			},
+			{ signal },
+		);
+		this.clearButton.addEventListener(
+			'click',
+			() => {
+				this.clearSelection();
+			},
+			{ signal },
+		);
+		this.input.addEventListener(
+			'change',
+			(event) => {
+				// The input's native change event would otherwise bubble to the host and collide with
+				// this component's own semantic `change` CustomEvent (whose listener reads event.detail).
+				event.stopPropagation();
+			},
+			{ signal },
+		);
+		this.input.addEventListener(
+			'focus',
+			() => {
+				// Select the current family so re-focusing after a pick lets you type a fresh search.
+				this.input.select();
+				this.openDropdown();
+			},
+			{ signal },
+		);
+		this.input.addEventListener(
+			'blur',
+			() => {
+				this.blurTimer = setTimeout(() => {
+					this.closeDropdown();
+				}, 150);
+			},
+			{ signal },
+		);
+		this.input.addEventListener(
+			'keydown',
+			(event) => {
+				this.handleKey(event);
+			},
+			{ signal },
+		);
+
+		this.list.addEventListener(
+			'mousedown',
+			(event) => {
+				if (!(event.target instanceof HTMLElement)) return;
+				const row = event.target.closest<HTMLElement>('[data-index]');
+				if (!row) return;
+				event.preventDefault(); // keep input focus so the blur handler doesn't close before select
+				this.selectIndex(Number(row.dataset.index));
+			},
+			{ signal },
+		);
+		this.list.addEventListener('scroll', this.onScroll, { passive: true, signal });
+
+		globalThis.addEventListener('resize', this.reposition, { signal });
+		this.root.addEventListener('scroll', this.reposition, { capture: true, passive: true, signal });
+
+		this.applyFilter();
+		if (this.selectedFamily) {
+			this.input.value = this.selectedFamily;
 			this.updateClearVisibility();
-		});
-		this.clearButton.addEventListener('click', () => {
-			this.clearSelection();
-		});
-		this.input.addEventListener('change', (event) => {
-			// The input's native change event would otherwise bubble to the host and collide with
-			// this component's own semantic `change` CustomEvent (whose listener reads event.detail).
-			event.stopPropagation();
-		});
-		this.input.addEventListener('focus', () => {
-			// Select the current family so re-focusing after a pick lets you type a fresh search.
-			this.input.select();
-			this.openDropdown();
-		});
-		this.input.addEventListener('blur', () => {
-			setTimeout(() => {
-				this.closeDropdown();
-			}, 150);
-		});
-		this.input.addEventListener('keydown', (event) => {
-			this.handleKey(event);
-		});
+		}
 
-		this.list.addEventListener('mousedown', (event) => {
-			if (!(event.target instanceof HTMLElement)) return;
-			const row = event.target.closest<HTMLElement>('[data-index]');
-			if (!row) return;
-			event.preventDefault(); // keep input focus so the blur handler doesn't close before select
-			this.selectIndex(Number(row.dataset.index));
-		});
-		this.list.addEventListener('scroll', this.onScroll);
-
-		globalThis.addEventListener('resize', this.reposition);
-		this.root.addEventListener('scroll', this.reposition, true);
+		this.ready = true;
 	}
 
 	disconnectedCallback(): void {
+		this.controller?.abort();
+		if (this.blurTimer !== undefined) clearTimeout(this.blurTimer);
+		if (this.rafId !== undefined) cancelAnimationFrame(this.rafId);
 		this.list.remove();
-		globalThis.removeEventListener('resize', this.reposition);
-		this.root.removeEventListener('scroll', this.reposition, true);
+		this.ready = false;
 	}
 
 	setCategory(category: string): void {
 		this.category = category;
-		this.applyFilter();
+		if (this.ready) this.applyFilter();
 	}
 
 	setOptions(options: Array<ComboboxOption>): void {
 		this.allOptions = options;
-		this.applyFilter();
+		if (this.ready) this.applyFilter();
 	}
 
 	setSelectedFamily(family: string): void {
+		this.selectedFamily = family;
+		if (!this.ready) return;
 		this.input.value = family;
 		this.updateClearVisibility();
 	}
@@ -130,12 +192,14 @@ export class FontCombobox extends HTMLElement {
 			.filter((option) => this.category === 'all' || option.category === this.category)
 			.filter((option) => !query || option.family.toLowerCase().includes(query));
 		this.activeIndex = -1;
+		this.syncActiveDescendant();
 		this.sizer.style.height = `${String(this.filtered.length * rowHeight)}px`;
 		this.list.scrollTop = 0;
 		this.renderWindow();
 	}
 
 	private clearSelection(): void {
+		this.selectedFamily = '';
 		this.input.value = '';
 		this.closeDropdown();
 		this.updateClearVisibility();
@@ -145,6 +209,8 @@ export class FontCombobox extends HTMLElement {
 
 	private closeDropdown(): void {
 		this.list.hidden = true;
+		this.input.setAttribute('aria-expanded', 'false');
+		this.input.removeAttribute('aria-activedescendant');
 	}
 
 	private ensureActiveVisible(): void {
@@ -165,6 +231,7 @@ export class FontCombobox extends HTMLElement {
 				this.activeIndex = Math.min(this.activeIndex + 1, this.filtered.length - 1);
 				this.ensureActiveVisible();
 				this.renderWindow();
+				this.syncActiveDescendant();
 
 				break;
 			}
@@ -174,6 +241,7 @@ export class FontCombobox extends HTMLElement {
 				this.activeIndex = Math.max(this.activeIndex - 1, 0);
 				this.ensureActiveVisible();
 				this.renderWindow();
+				this.syncActiveDescendant();
 
 				break;
 			}
@@ -195,18 +263,19 @@ export class FontCombobox extends HTMLElement {
 	}
 
 	private readonly onScroll = (): void => {
-		if (this.rafPending) return;
-		this.rafPending = true;
-		requestAnimationFrame(() => {
-			this.rafPending = false;
+		if (this.rafId !== undefined) return;
+		this.rafId = requestAnimationFrame(() => {
+			this.rafId = undefined;
 			this.renderWindow();
 		});
 	};
 
 	private openDropdown(): void {
 		this.list.hidden = false;
+		this.input.setAttribute('aria-expanded', 'true');
 		this.positionList();
 		this.renderWindow();
+		this.syncActiveDescendant();
 	}
 
 	private positionList(): void {
@@ -243,9 +312,12 @@ export class FontCombobox extends HTMLElement {
 			const template = rowTemplate.content.firstElementChild;
 			if (!option || !template) continue;
 			const row = template.cloneNode(true) as HTMLElement;
+			const isActive = index === this.activeIndex;
+			row.id = `fdt-option-${String(this.uid)}-${String(index)}`;
 			row.dataset.index = String(index);
 			row.style.top = `${String(index * rowHeight)}px`;
-			row.classList.toggle('fdt-active', index === this.activeIndex);
+			row.classList.toggle('fdt-active', isActive);
+			row.setAttribute('aria-selected', isActive ? 'true' : 'false');
 			const familyLabel = row.querySelector<HTMLSpanElement>('.fdt-fam');
 			if (familyLabel) familyLabel.textContent = option.family;
 			if (!option.variable) row.querySelector('.fdt-var')?.remove();
@@ -264,6 +336,7 @@ export class FontCombobox extends HTMLElement {
 
 		if (!option) return;
 
+		this.selectedFamily = option.family;
 		this.input.value = option.family;
 		this.updateClearVisibility();
 		this.closeDropdown();
@@ -273,8 +346,27 @@ export class FontCombobox extends HTMLElement {
 		this.input.blur();
 	}
 
+	private syncActiveDescendant(): void {
+		if (this.activeIndex < 0) {
+			this.input.removeAttribute('aria-activedescendant');
+
+			return;
+		}
+
+		this.input.setAttribute(
+			'aria-activedescendant',
+			`fdt-option-${String(this.uid)}-${String(this.activeIndex)}`,
+		);
+	}
+
 	private updateClearVisibility(): void {
 		this.clearButton.hidden = this.input.value === '';
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'font-combobox': FontCombobox;
 	}
 }
 
