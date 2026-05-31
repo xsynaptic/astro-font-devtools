@@ -33,10 +33,29 @@ export function createCatalogHandler(providers: Array<ProviderName>): Connect.Ne
 }
 
 async function assembleCatalog(providers: Array<ProviderName>): Promise<Array<CatalogFont>> {
-	const [lists, popularity] = await Promise.all([
-		Promise.all(providers.map((name) => adapters[name]())),
-		googlePopularityMap(),
+	const [results, popularity] = await Promise.all([
+		Promise.allSettled(providers.map((name) => adapters[name]())),
+		googlePopularityMap().catch(() => new Map<string, { popularity: number; trending: number }>()),
 	]);
+
+	for (const [index, result] of results.entries()) {
+		if (result.status === 'rejected') {
+			const reason = result.reason instanceof Error ? result.reason.message : 'unknown';
+			console.warn(
+				`[astro-font-devtools] ${providers[index] ?? 'provider'} catalog failed: ${reason}`,
+			);
+		}
+	}
+
+	const lists = results
+		.filter(
+			(result): result is PromiseFulfilledResult<Array<CatalogFont>> =>
+				result.status === 'fulfilled',
+		)
+		.map((result) => result.value);
+
+	if (lists.length === 0) throw new Error('all font providers failed to load');
+
 	const byFamily = new Map<string, CatalogFont>();
 
 	for (const list of lists) {
@@ -81,6 +100,10 @@ function buildCatalog(providers: Array<ProviderName>): Promise<Array<CatalogFont
 	const promise = assembleCatalog(providers);
 
 	catalogCache.set(key, promise);
+	// Drop a failed build so the next request retries instead of getting the cached rejection.
+	void promise.catch(() => {
+		catalogCache.delete(key);
+	});
 
 	return promise;
 }

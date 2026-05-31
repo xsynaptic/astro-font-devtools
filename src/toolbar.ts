@@ -128,7 +128,13 @@ function isVarTarget(target: string): boolean {
 function loadCatalog(): Promise<Array<CatalogFont>> {
 	if (catalog) return Promise.resolve(catalog);
 	catalogPromise ??= fetch(catalogUrl)
-		.then((response) => response.json() as Promise<Array<CatalogFont>>)
+		.then(async (response) => {
+			if (!response.ok) throw new Error(`catalog request failed (${String(response.status)})`);
+			const data: unknown = await response.json();
+			if (!Array.isArray(data)) throw new Error('catalog response was not a list');
+
+			return data as Array<CatalogFont>;
+		})
 		.then((fonts) => {
 			catalog = fonts;
 			catalogPromise = undefined;
@@ -236,53 +242,71 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 		picker.start();
 	});
 
-	void loadCatalog().then((fonts) => {
-		status.remove();
-		for (const provider of fonts.flatMap((font) => font.providers)) active.add(provider);
-		const computeOptions = (): Array<ComboboxOption> =>
-			fonts
-				.filter((font) => font.providers.some((provider) => active.has(provider)))
-				.filter(
-					(font) =>
-						activeScripts.size === 0 ||
-						toBaseScripts(font.scripts).every((script) => activeScripts.has(script)),
-				)
-				.map((font) => ({ category: font.category, family: font.family, variable: font.variable }));
+	rows.classList.add('fdt-rows-locked');
 
-		function refreshOptions(): void {
+	void loadCatalog()
+		.then((fonts) => {
+			status.remove();
+			rows.classList.remove('fdt-rows-locked');
+			for (const provider of fonts.flatMap((font) => font.providers)) active.add(provider);
+			const computeOptions = (): Array<ComboboxOption> =>
+				fonts
+					.filter((font) => font.providers.some((provider) => active.has(provider)))
+					.filter(
+						(font) =>
+							activeScripts.size === 0 ||
+							toBaseScripts(font.scripts).every((script) => activeScripts.has(script)),
+					)
+					.map((font) => ({
+						category: font.category,
+						family: font.family,
+						variable: font.variable,
+					}));
+
+			function refreshOptions(): void {
+				currentOptions = computeOptions();
+				for (const handle of rowHandles) {
+					handle.setOptions(currentOptions);
+				}
+			}
+
 			currentOptions = computeOptions();
 			for (const handle of rowHandles) {
 				handle.setOptions(currentOptions);
+				handle.restore();
 			}
-		}
 
-		currentOptions = computeOptions();
-		for (const handle of rowHandles) {
-			handle.setOptions(currentOptions);
-			handle.restore();
-		}
+			setDisabled(pickButton, false);
+			setDisabled(addButton, false);
 
-		setDisabled(pickButton, false);
-		setDisabled(addButton, false);
+			const available = [...active].toSorted();
+			if (providersEl && available.length > 1) {
+				renderProviderToggles(providersEl, available, active, refreshOptions);
+			}
 
-		const available = [...active].toSorted();
-		if (providersEl && available.length > 1) {
-			renderProviderToggles(providersEl, available, active, refreshOptions);
-		}
-
-		const scriptVocab = sortedScripts(fonts);
-		if (scriptSelect && scriptVocab.length > 1) {
-			scriptSelect.hidden = false;
-			scriptSelect.setAvailable(scriptVocab);
-			scriptSelect.setSelected([...activeScripts]);
-			scriptSelect.addEventListener('change', (event) => {
-				const { selected } = (event as CustomEvent<{ selected: Array<string> }>).detail;
-				activeScripts.clear();
-				for (const script of selected) activeScripts.add(script);
-				refreshOptions();
+			const scriptVocab = sortedScripts(fonts);
+			if (scriptSelect && scriptVocab.length > 1) {
+				scriptSelect.hidden = false;
+				scriptSelect.setAvailable(scriptVocab);
+				scriptSelect.setSelected([...activeScripts]);
+				scriptSelect.addEventListener('change', (event) => {
+					const { selected } = (event as CustomEvent<{ selected: Array<string> }>).detail;
+					activeScripts.clear();
+					for (const script of selected) activeScripts.add(script);
+					refreshOptions();
+				});
+			}
+		})
+		.catch(() => {
+			status.classList.add('fdt-error');
+			status.innerHTML = html`Error loading font data
+				<astro-dev-toolbar-button button-style="gray" size="small"
+					>Retry</astro-dev-toolbar-button
+				>`;
+			status.querySelector('astro-dev-toolbar-button')?.addEventListener('click', () => {
+				render(canvas, configTargets);
 			});
-		}
-	});
+		});
 }
 
 // Global provider filter row: one tiny toggle per available provider. Toggling mutates the shared

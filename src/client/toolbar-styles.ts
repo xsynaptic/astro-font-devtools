@@ -11,6 +11,14 @@ export const toolbarStyles = css`
 		color: rgba(255, 255, 255, 0.5);
 		padding: 0.25rem 0;
 	}
+	.fdt-status.fdt-error {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-left: auto;
+		padding: 0;
+		color: #cf6679;
+	}
 	#fdt-rows {
 		max-height: min(60vh, 28rem);
 		overflow-y: auto;
@@ -224,6 +232,10 @@ export const toolbarStyles = css`
 		color: rgba(255, 255, 255, 0.85);
 	}
 	.fdt-disabled {
+		opacity: 0.4;
+		pointer-events: none;
+	}
+	.fdt-rows-locked .fdt-rmain > *:not([data-action='delete']) {
 		opacity: 0.4;
 		pointer-events: none;
 	}
