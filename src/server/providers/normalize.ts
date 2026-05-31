@@ -1,8 +1,8 @@
 import type * as z from 'zod';
 
-import type { FontCategory, ProviderName } from '../types.js';
+import type { FontCategory, ProviderName } from '../../shared/types.js';
 
-import { fontCategories } from '../types.js';
+import { fontCategories } from '../../shared/types.js';
 
 export function normalizeCategory(raw: string): FontCategory {
 	const value = raw.toLowerCase().replaceAll(/\s+/g, '-');
@@ -26,6 +26,7 @@ export function parseFonts<Schema extends z.ZodType>(
 			valid.push(result.data);
 			continue;
 		}
+
 		dropped += 1;
 	}
 

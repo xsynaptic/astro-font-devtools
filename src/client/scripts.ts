@@ -1,4 +1,4 @@
-import type { CatalogFont } from './types.js';
+import type { CatalogFont } from '../shared/types.js';
 
 // Display names for common base scripts (toBaseScripts folds `-ext`/auxiliary subsets away before
 // labeling, so only base names appear here); anything unlisted falls back to a title-cased raw name.
@@ -56,6 +56,7 @@ export function sortedScripts(fonts: Array<CatalogFont>): Array<string> {
 		.filter((script) => (counts.get(script) ?? 0) >= scriptThreshold)
 		.toSorted((first, second) => {
 			const byCount = (counts.get(second) ?? 0) - (counts.get(first) ?? 0);
+
 			return byCount === 0 ? first.localeCompare(second) : byCount;
 		});
 }
@@ -69,6 +70,7 @@ export function toBaseScripts(scripts: Array<string>): Array<string> {
 		if (auxiliarySubsets.has(subset)) continue;
 		base.add(subset === 'vietnamese' ? 'latin' : subset.replace(/-ext$/, ''));
 	}
+
 	return [...base];
 }
 

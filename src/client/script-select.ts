@@ -138,6 +138,7 @@ export class FontScriptSelect extends HTMLElement {
 			if (query && !scriptLabel(script).toLowerCase().includes(query) && !script.includes(query)) {
 				continue;
 			}
+
 			const label = document.createElement('label');
 			label.className = 'fdt-scripts-item';
 			const checkbox = document.createElement('input');
@@ -147,6 +148,7 @@ export class FontScriptSelect extends HTMLElement {
 			label.append(checkbox, scriptLabel(script));
 			fragment.append(label);
 		}
+
 		this.list.replaceChildren(fragment);
 	}
 
@@ -159,8 +161,10 @@ export class FontScriptSelect extends HTMLElement {
 
 		if (count === 0) {
 			this.trigger.textContent = 'All scripts';
+
 			return;
 		}
+
 		const [first] = this.getSelected();
 
 		if (!first) return;

@@ -1,8 +1,8 @@
 import * as z from 'zod';
 
-import type { CatalogFont } from '../types.js';
+import type { CatalogFont } from '../../shared/types.js';
 
-import { normalizeCategory, parseFonts } from './shared.js';
+import { normalizeCategory, parseFonts } from './normalize.js';
 
 const googleFontSchema = z.object({
 	axes: z.array(z.unknown()), // Only the length is read

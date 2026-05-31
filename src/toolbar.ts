@@ -1,17 +1,17 @@
 import { defineToolbarApp } from 'astro/toolbar';
 import * as z from 'zod';
 
-import type { ComboboxOption, FontCombobox } from './combobox.js';
-import type { FontScriptSelect } from './script-select.js';
-import type { CatalogFont } from './types.js';
+import type { ComboboxOption, FontCombobox } from './client/combobox.js';
+import type { FontScriptSelect } from './client/script-select.js';
+import type { CatalogFont } from './shared/types.js';
 
-import './combobox.js';
-import './script-select.js';
-import { rowHeight } from './combobox.js';
-import { createElementPicker } from './element-picker.js';
-import { icons } from './icons.js';
-import { sortedScripts, toBaseScripts } from './scripts.js';
-import { fontCategories } from './types.js';
+import './client/combobox.js';
+import './client/script-select.js';
+import { rowHeight } from './client/combobox.js';
+import { createElementPicker } from './client/element-picker.js';
+import { sortedScripts, toBaseScripts } from './client/scripts.js';
+import { icons } from './shared/icons.js';
+import { fontCategories } from './shared/types.js';
 
 const selectionSchema = z.object({
 	family: z.string(),
@@ -70,6 +70,7 @@ function defaultSelector(element: HTMLElement): string {
 	const className = element.classList[0];
 	if (className) return `${tag}.${className}`;
 	if (element.id) return `${tag}#${element.id}`;
+
 	return tag;
 }
 
@@ -81,6 +82,7 @@ function extractFallback(currentValue: string): string {
 		const token = tokens[index];
 		if (token && genericFamilies.has(token)) return token;
 	}
+
 	return 'sans-serif';
 }
 
@@ -103,6 +105,7 @@ function getToolbarPlacement(): string | undefined {
 	const toolbar = document.querySelector('astro-dev-toolbar');
 	if (!toolbar?.shadowRoot) return undefined;
 	const root = toolbar.shadowRoot.querySelector<HTMLElement>('#dev-toolbar-root');
+
 	return root?.dataset.placement;
 }
 
@@ -125,12 +128,14 @@ function loadCatalog(): Promise<Array<CatalogFont>> {
 		.then((fonts) => {
 			catalog = fonts;
 			catalogPromise = undefined;
+
 			return fonts;
 		})
 		.catch((error: unknown) => {
 			catalogPromise = undefined; // let the next open retry instead of caching the failure
 			throw error;
 		});
+
 	return catalogPromise;
 }
 
@@ -140,6 +145,7 @@ function loadState(): State {
 	if (!raw) return fallback;
 	try {
 		const parsed = stateSchema.safeParse(JSON.parse(raw));
+
 		return parsed.success ? parsed.data : fallback;
 	} catch {
 		return fallback;
@@ -246,6 +252,7 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 		const handle = renderRow(target, isAdded, providerFor);
 		rows.append(handle.element);
 		rowHandles.push(handle);
+
 		return handle;
 	};
 
@@ -306,6 +313,7 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 			handle.setOptions(currentOptions);
 			handle.restore();
 		}
+
 		setDisabled(pickButton, false);
 		setDisabled(addButton, false);
 
@@ -357,6 +365,7 @@ function renderProviderToggles(
 				active.add(provider);
 				button.setAttribute('button-style', 'gray');
 			}
+
 			onChange();
 		});
 	}
@@ -405,6 +414,7 @@ function renderRow(
 	) {
 		throw new Error('astro-font-devtools: row template is missing its controls');
 	}
+
 	// Re-bind to non-null names; the guard above narrows these, which the hoisted closures below
 	// (isItalic, freezeControls, ...) can't see through the original nullable declarations.
 	const targetInput = targetInputEl;
@@ -417,15 +427,18 @@ function renderRow(
 	function isItalic(): boolean {
 		return italicButton.getAttribute('aria-pressed') === 'true';
 	}
+
 	function setItalic(on: boolean): void {
 		italicButton.setAttribute('aria-pressed', on ? 'true' : 'false');
 	}
+
 	function freezeControls(): void {
 		weightSelect.innerHTML = '';
 		weightSelect.disabled = true;
 		italicButton.disabled = true;
 		setItalic(false);
 	}
+
 	// Weight/italic can't affect a CSS variable (it only carries the family, and we don't control
 	// where it's used), so they stay frozen for --var targets; only selector rows apply them.
 	function syncControlAvailability(): void {
@@ -453,6 +466,7 @@ function renderRow(
 		if (appliedTarget && isVarTarget(appliedTarget)) {
 			document.documentElement.style.removeProperty(appliedTarget);
 		}
+
 		document.head.querySelector(`style[data-font-devtools="${rowId}"]`)?.remove();
 		appliedTarget = undefined;
 	}
@@ -476,6 +490,7 @@ function renderRow(
 			if (isItalic()) decls.push('font-style: italic !important');
 			injectFontStyle(rowId, `${faceCss}\n${target} { ${decls.join('; ')}; }`);
 		}
+
 		appliedTarget = target;
 	}
 
@@ -484,6 +499,7 @@ function renderRow(
 		const wanted = refEl ? Number.parseInt(getComputedStyle(refEl).fontWeight, 10) || 400 : 400;
 		if (font.weights.includes(wanted)) return wanted;
 		if (font.weights.includes(400)) return 400;
+
 		return font.weights[0] ?? 400;
 	}
 
@@ -612,6 +628,7 @@ async function resolveCss(
 	if (provider) params.set('provider', provider);
 
 	const response = await fetch(`${resolveUrl}?${params.toString()}`);
+
 	return response.text();
 }
 
@@ -638,6 +655,7 @@ function syncAdded(oldTarget: string, newTarget: string): void {
 export default defineToolbarApp({
 	beforeTogglingOff() {
 		activePicker?.stop();
+
 		return true;
 	},
 	init(canvas, app, server) {

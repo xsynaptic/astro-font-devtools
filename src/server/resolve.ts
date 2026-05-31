@@ -3,7 +3,7 @@ import type { Connect } from 'vite';
 
 import { createUnifont, providers as unifontProviders } from 'unifont';
 
-import type { ProviderName } from './types.js';
+import type { ProviderName } from '../shared/types.js';
 
 type Storage = NonNullable<UnifontOptions['storage']>;
 type UnifontInstance = Awaited<ReturnType<typeof createUnifont>>;
@@ -27,6 +27,7 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 		if (!family) {
 			res.statusCode = 400;
 			res.end('/* missing family */');
+
 			return;
 		}
 

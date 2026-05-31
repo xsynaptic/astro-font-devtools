@@ -1,11 +1,11 @@
 import type { Connect } from 'vite';
 
-import type { CatalogFont, ProviderName } from '../types.js';
+import type { CatalogFont, ProviderName } from '../shared/types.js';
 
-import { bunnyCatalog } from './bunny.js';
-import { fontshareCatalog } from './fontshare.js';
-import { fontsourceCatalog } from './fontsource.js';
-import { googleCatalog, googlePopularityMap } from './google.js';
+import { bunnyCatalog } from './providers/bunny.js';
+import { fontshareCatalog } from './providers/fontshare.js';
+import { fontsourceCatalog } from './providers/fontsource.js';
+import { googleCatalog, googlePopularityMap } from './providers/google.js';
 
 const adapters: Record<ProviderName, () => Promise<Array<CatalogFont>>> = {
 	bunny: bunnyCatalog,
@@ -46,11 +46,14 @@ async function assembleCatalog(providers: Array<ProviderName>): Promise<Array<Ca
 				for (const provider of font.providers) {
 					if (!existing.providers.includes(provider)) existing.providers.push(provider);
 				}
+
 				for (const script of font.scripts) {
 					if (!existing.scripts.includes(script)) existing.scripts.push(script);
 				}
+
 				continue;
 			}
+
 			if (font.popularity === undefined) {
 				const joined = popularity.get(font.family);
 
@@ -59,6 +62,7 @@ async function assembleCatalog(providers: Array<ProviderName>): Promise<Array<Ca
 					font.trending = joined.trending;
 				}
 			}
+
 			byFamily.set(font.family, font);
 		}
 	}

@@ -1,4 +1,4 @@
-import { icons } from './icons.js';
+import { icons } from '../shared/icons.js';
 
 export interface ComboboxOption {
 	category: string;
@@ -162,6 +162,7 @@ export class FontCombobox extends HTMLElement {
 
 				break;
 			}
+
 			case 'ArrowUp': {
 				event.preventDefault();
 				this.activeIndex = Math.max(this.activeIndex - 1, 0);
@@ -170,12 +171,14 @@ export class FontCombobox extends HTMLElement {
 
 				break;
 			}
+
 			case 'Enter': {
 				event.preventDefault();
 				if (this.activeIndex >= 0) this.selectIndex(this.activeIndex);
 
 				break;
 			}
+
 			case 'Escape': {
 				event.preventDefault();
 				this.closeDropdown();
@@ -243,6 +246,7 @@ export class FontCombobox extends HTMLElement {
 			if (!option.variable) row.querySelector('.fdt-var')?.remove();
 			fragment.append(row);
 		}
+
 		this.sizer.replaceChildren(fragment);
 	}
 

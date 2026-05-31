@@ -1,5 +1,6 @@
 import { defineConfig } from '@eslint/config-helpers';
 import eslint from '@eslint/js';
+import stylistic from '@stylistic/eslint-plugin';
 import perfectionist from 'eslint-plugin-perfectionist';
 import unicorn from 'eslint-plugin-unicorn';
 import globals from 'globals';
@@ -7,7 +8,7 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig(
 	{
-		ignores: ['**/node_modules/**', '**/dist/**', '*.config.{mjs,ts}'],
+		ignores: ['**/node_modules/**', '**/dist/**'],
 	},
 	eslint.configs.recommended,
 	...tseslint.configs.strictTypeChecked,
@@ -28,27 +29,25 @@ export default defineConfig(
 			sourceType: 'module',
 		},
 		plugins: {
+			'@stylistic': stylistic,
 			'@typescript-eslint': tseslint.plugin,
 		},
 	},
 	{
 		files: ['**/*.ts', '**/*.mts', '**/*.cts'],
 		rules: {
-			'@typescript-eslint/array-type': ['warn', { default: 'generic' }],
+			'@stylistic/padding-line-between-statements': [
+				'error',
+				{ blankLine: 'always', next: 'return', prev: '*' },
+				{ blankLine: 'always', next: '*', prev: 'block-like' },
+			],
+			'@typescript-eslint/array-type': ['error', { default: 'generic' }],
 			'@typescript-eslint/consistent-type-imports': [
 				'error',
 				{ fixStyle: 'separate-type-imports', prefer: 'type-imports' },
 			],
+			'@typescript-eslint/switch-exhaustiveness-check': 'error',
 			'unicorn/prevent-abbreviations': 'off',
-		},
-	},
-	// These files run in the browser
-	{
-		files: ['src/toolbar.ts', 'src/combobox.ts'],
-		languageOptions: {
-			globals: {
-				...globals.browser,
-			},
 		},
 	},
 );

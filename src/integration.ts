@@ -1,10 +1,10 @@
 import type { AstroIntegration } from 'astro';
 
-import type { ProviderName } from './types.js';
+import type { ProviderName } from './shared/types.js';
 
-import { createCatalogHandler } from './catalog/index.js';
-import { icons } from './icons.js';
-import { createResolveHandler } from './resolve.js';
+import { createCatalogHandler } from './server/catalog.js';
+import { createResolveHandler } from './server/resolve.js';
+import { icons } from './shared/icons.js';
 
 interface Options {
 	/** Which font providers to browse. Defaults to Fontsource only. */

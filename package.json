@@ -23,7 +23,7 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/integration.ts"
 	},
 	"files": [
 		"dist",
@@ -32,12 +32,12 @@
 	"publishConfig": {
 		"exports": {
 			".": {
-				"types": "./dist/index.d.mts",
-				"import": "./dist/index.mjs"
+				"types": "./dist/integration.d.mts",
+				"import": "./dist/integration.mjs"
 			}
 		},
-		"main": "./dist/index.mjs",
-		"types": "./dist/index.d.mts"
+		"main": "./dist/integration.mjs",
+		"types": "./dist/integration.d.mts"
 	},
 	"scripts": {
 		"build": "tsdown",
@@ -57,6 +57,7 @@
 	"devDependencies": {
 		"@eslint/config-helpers": "^0.6.0",
 		"@eslint/js": "^9.39.4",
+		"@stylistic/eslint-plugin": "6.0.0-beta.4",
 		"@types/node": "^22.0.0",
 		"astro": "^6.3.8",
 		"eslint": "^9.39.4",

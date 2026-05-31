@@ -22,6 +22,7 @@ export function createElementPicker(onPick: (element: HTMLElement) => void): Ele
 			highlight.style.display = 'none';
 			document.body.append(highlight);
 		}
+
 		return highlight;
 	}
 
@@ -44,6 +45,7 @@ export function createElementPicker(onPick: (element: HTMLElement) => void): Ele
 
 		// Ignore the dev toolbar itself (its shadow host retargets to this tag).
 		if (found.closest('astro-dev-toolbar')) return undefined;
+
 		return found;
 	}
 
@@ -51,8 +53,10 @@ export function createElementPicker(onPick: (element: HTMLElement) => void): Ele
 		const element = targetFrom(event);
 		if (!element) {
 			if (highlight) highlight.style.display = 'none';
+
 			return;
 		}
+
 		position(element);
 	}
 
