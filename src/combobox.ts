@@ -7,6 +7,7 @@ export interface ComboboxOption {
 }
 
 export const rowHeight = 26; // px per row; the .fdt-option CSS height in toolbar.ts derives from this
+
 const bufferRows = 6; // extra rows rendered above and below the visible window
 const minDropdownHeight = 120;
 
@@ -34,8 +35,11 @@ export class FontCombobox extends HTMLElement {
 				<button type="button" class="fdt-combo-clear" aria-label="Clear font" tabindex="-1" hidden>${icons.close}</button>
 			</div>
 		`;
-		this.input = this.querySelector('input')!;
-		this.clearButton = this.querySelector('.fdt-combo-clear')!;
+		const input = this.querySelector<HTMLInputElement>('input');
+		const clearButton = this.querySelector<HTMLButtonElement>('.fdt-combo-clear');
+		if (!input || !clearButton) return;
+		this.input = input;
+		this.clearButton = clearButton;
 
 		// The list floats free of the dev-toolbar window: it lives at the shadow-root level
 		// (outside the window's clipped, transformed box) and is positioned with fixed coordinates
@@ -81,7 +85,8 @@ export class FontCombobox extends HTMLElement {
 		});
 
 		this.list.addEventListener('mousedown', (event) => {
-			const row = (event.target as HTMLElement).closest<HTMLElement>('[data-index]');
+			if (!(event.target instanceof HTMLElement)) return;
+			const row = event.target.closest<HTMLElement>('[data-index]');
 			if (!row) return;
 			event.preventDefault(); // keep input focus so the blur handler doesn't close before select
 			this.selectIndex(Number(row.dataset.index));
@@ -203,6 +208,7 @@ export class FontCombobox extends HTMLElement {
 		const openDown = spaceBelow >= spaceAbove;
 		const maxHeight = Math.max(minDropdownHeight, (openDown ? spaceBelow : spaceAbove) - 12);
 		const style = this.list.style;
+
 		style.left = `${String(Math.round(rect.left))}px`;
 		style.width = `${String(Math.round(rect.width))}px`;
 		style.maxHeight = `${String(Math.round(maxHeight))}px`;
@@ -223,14 +229,18 @@ export class FontCombobox extends HTMLElement {
 			start + Math.ceil(viewportHeight / rowHeight) + bufferRows * 2,
 		);
 		const fragment = document.createDocumentFragment();
+
 		for (let index = start; index < end; index += 1) {
-			const option = this.filtered[index]!;
-			const row = rowTemplate.content.firstElementChild!.cloneNode(true) as HTMLElement;
+			const option = this.filtered[index];
+			const template = rowTemplate.content.firstElementChild;
+			if (!option || !template) continue;
+			const row = template.cloneNode(true) as HTMLElement;
 			row.dataset.index = String(index);
 			row.style.top = `${String(index * rowHeight)}px`;
 			row.classList.toggle('fdt-active', index === this.activeIndex);
-			row.querySelector('.fdt-fam')!.textContent = option.family;
-			if (!option.variable) row.querySelector('.fdt-var')!.remove();
+			const familyLabel = row.querySelector<HTMLSpanElement>('.fdt-fam');
+			if (familyLabel) familyLabel.textContent = option.family;
+			if (!option.variable) row.querySelector('.fdt-var')?.remove();
 			fragment.append(row);
 		}
 		this.sizer.replaceChildren(fragment);
@@ -242,11 +252,14 @@ export class FontCombobox extends HTMLElement {
 
 	private selectIndex(index: number): void {
 		const option = this.filtered[index];
+
 		if (!option) return;
+
 		this.input.value = option.family;
 		this.updateClearVisibility();
 		this.closeDropdown();
 		this.dispatchEvent(new CustomEvent<ComboboxOption>('change', { detail: option }));
+
 		// Drop focus so the next click on the input re-opens the dropdown to pick another font.
 		this.input.blur();
 	}

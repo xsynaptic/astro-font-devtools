@@ -35,6 +35,7 @@ export async function fontshareCatalog(): Promise<Array<CatalogFont>> {
 			`https://api.fontshare.com/v2/fonts?limit=100&offset=${String(offset)}`,
 		);
 		const chunk = fontsharePageSchema.parse(await response.json());
+
 		fonts.push(...parseFonts(chunk.fonts, fontshareFontSchema, 'fontshare'));
 		hasMore = chunk.has_more && chunk.fonts.length > 0;
 		offset += chunk.fonts.length;
@@ -58,8 +59,10 @@ export async function fontshareCatalog(): Promise<Array<CatalogFont>> {
 		};
 		const popularity = popularityRank.get(font.name);
 		const trending = trendingRank.get(font.name);
+
 		if (popularity !== undefined) entry.popularity = popularity;
 		if (trending !== undefined) entry.trending = trending;
+
 		return entry;
 	});
 }

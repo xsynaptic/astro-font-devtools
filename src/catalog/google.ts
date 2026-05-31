@@ -5,7 +5,7 @@ import type { CatalogFont } from '../types.js';
 import { normalizeCategory, parseFonts } from './shared.js';
 
 const googleFontSchema = z.object({
-	axes: z.array(z.unknown()), // only the length is read
+	axes: z.array(z.unknown()), // Only the length is read
 	category: z.string(),
 	family: z.string(),
 	fonts: z.record(z.string(), z.unknown()), // Keyed by weight
@@ -59,6 +59,7 @@ function fetchGoogleMeta(): Promise<Array<GoogleFont>> {
 		.then((text) => {
 			const json = text.replace(/^\)\]\}'[^\n]*\n/, ''); // strip XSSI prefix if present
 			const { familyMetadataList } = googleMetaSchema.parse(JSON.parse(json));
+
 			return parseFonts(familyMetadataList, googleFontSchema, 'google');
 		});
 
@@ -70,6 +71,7 @@ function googleWeights(fonts: Record<string, unknown>): Array<number> {
 
 	for (const key of Object.keys(fonts)) {
 		const weight = Number.parseInt(key, 10);
+
 		if (!Number.isNaN(weight)) weights.add(weight);
 	}
 

@@ -15,20 +15,27 @@ const providerFactories = {
 	google: unifontProviders.google,
 } satisfies Record<ProviderName, () => Provider>;
 
+// Query params are untrusted; keep only styles unifont actually understands.
+const fontStyles = new Set<string>(['italic', 'normal', 'oblique'] satisfies Array<FontStyles>);
+
 let unifontPromise: Promise<UnifontInstance> | undefined;
 
 export function createResolveHandler(providers: Array<ProviderName>): Connect.NextHandleFunction {
 	return (req, res) => {
 		const params = new URL(req.url ?? '', 'http://localhost').searchParams;
 		const family = params.get('family');
+
 		if (!family) {
 			res.statusCode = 400;
 			res.end('/* missing family */');
 			return;
 		}
+
 		const provider = params.get('provider');
 		const weights = (params.get('weights') ?? '400,700').split(',');
-		const styles = (params.get('styles') ?? 'normal,italic').split(',') as Array<FontStyles>;
+		const styles = (params.get('styles') ?? 'normal,italic')
+			.split(',')
+			.filter((style): style is FontStyles => fontStyles.has(style));
 		const only = provider ? [provider] : undefined;
 		getUnifont(providers)
 			.then((unifont) =>
@@ -53,15 +60,18 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 
 function getUnifont(providers: Array<ProviderName>): Promise<UnifontInstance> {
 	const instances = providers.map((name) => providerFactories[name]());
+
 	// createUnifont wants a non-empty tuple; `providers` always has at least one entry.
 	unifontPromise ??= createUnifont(instances as [Provider, ...Array<Provider>], {
 		storage: memoryStorage(),
 	});
+
 	return unifontPromise;
 }
 
 function memoryStorage(): Storage {
 	const store = new Map<string, unknown>();
+
 	return {
 		getItem: (key) => store.get(key),
 		setItem: (key, value) => {
@@ -80,8 +90,10 @@ function renderFontFace(family: string, data: FontFaceData): string {
 		.join(', ');
 	const weight = Array.isArray(data.weight) ? data.weight.join(' ') : data.weight;
 	const lines = [`font-family: "${family}"`, `src: ${src}`, 'font-display: swap'];
+
 	if (weight !== undefined) lines.push(`font-weight: ${String(weight)}`);
 	if (data.style) lines.push(`font-style: ${data.style}`);
 	if (data.unicodeRange) lines.push(`unicode-range: ${data.unicodeRange.join(', ')}`);
+
 	return `@font-face { ${lines.join('; ')}; }`;
 }

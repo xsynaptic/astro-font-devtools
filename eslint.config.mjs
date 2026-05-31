@@ -39,15 +39,6 @@ export default defineConfig(
 				'error',
 				{ fixStyle: 'separate-type-imports', prefer: 'type-imports' },
 			],
-			'@typescript-eslint/no-non-null-assertion': 'off',
-			'@typescript-eslint/no-unused-vars': [
-				'warn',
-				{
-					argsIgnorePattern: '^_',
-					caughtErrorsIgnorePattern: '^_',
-					varsIgnorePattern: '^_',
-				},
-			],
 			'unicorn/prevent-abbreviations': 'off',
 		},
 	},

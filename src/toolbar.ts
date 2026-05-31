@@ -384,12 +384,30 @@ function renderRow(
 		</div>
 	`;
 
-	const targetInput = row.querySelector<HTMLInputElement>('.fdt-target')!;
-	const deleteButton = row.querySelector<HTMLButtonElement>('[data-action="delete"]')!;
-	const categorySelect = row.querySelector<HTMLSelectElement>('.fdt-category')!;
-	const combobox = row.querySelector<FontCombobox>('font-combobox')!;
-	const weightSelect = row.querySelector<HTMLSelectElement>('[data-control="weight"]')!;
-	const italicButton = row.querySelector<HTMLButtonElement>('[data-control="italic"]')!;
+	const targetInputEl = row.querySelector<HTMLInputElement>('.fdt-target');
+	const deleteButtonEl = row.querySelector<HTMLButtonElement>('[data-action="delete"]');
+	const categorySelectEl = row.querySelector<HTMLSelectElement>('.fdt-category');
+	const comboboxEl = row.querySelector<FontCombobox>('font-combobox');
+	const weightSelectEl = row.querySelector<HTMLSelectElement>('[data-control="weight"]');
+	const italicButtonEl = row.querySelector<HTMLButtonElement>('[data-control="italic"]');
+	if (
+		!targetInputEl ||
+		!deleteButtonEl ||
+		!categorySelectEl ||
+		!comboboxEl ||
+		!weightSelectEl ||
+		!italicButtonEl
+	) {
+		throw new Error('astro-font-devtools: row template is missing its controls');
+	}
+	// Re-bind to non-null names; the guard above narrows these, which the hoisted closures below
+	// (isItalic, freezeControls, ...) can't see through the original nullable declarations.
+	const targetInput = targetInputEl;
+	const deleteButton = deleteButtonEl;
+	const categorySelect = categorySelectEl;
+	const combobox = comboboxEl;
+	const weightSelect = weightSelectEl;
+	const italicButton = italicButtonEl;
 
 	function isItalic(): boolean {
 		return italicButton.getAttribute('aria-pressed') === 'true';
@@ -575,7 +593,7 @@ function renderRow(
 	};
 }
 
-function resolveCss(
+async function resolveCss(
 	family: string,
 	provider: string | undefined,
 	weights: Array<string>,
@@ -587,6 +605,7 @@ function resolveCss(
 		weights: weights.join(','),
 	});
 	if (provider) params.set('provider', provider);
+
 	return fetch(`${resolveUrl}?${params.toString()}`).then((response) => response.text());
 }
 

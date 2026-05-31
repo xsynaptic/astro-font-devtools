@@ -4,18 +4,14 @@ import type { FontCategory, ProviderName } from '../types.js';
 
 import { fontCategories } from '../types.js';
 
-const knownCategories = new Set<string>(fontCategories.filter((category) => category !== 'other'));
-
 export function normalizeCategory(raw: string): FontCategory {
 	const value = raw.toLowerCase().replaceAll(/\s+/g, '-');
 
-	return knownCategories.has(value) ? (value as FontCategory) : 'other';
+	return fontCategories.find((category) => category === value) ?? 'other';
 }
 
-/**
- * Validate a provider's list per item: keep the ones that parse, drop the rest with a logged
- * count, so a single malformed record never sinks the whole catalog
- */
+// Validate a provider's list per item: keep the ones that parse, drop the rest with a logged count
+// This way a single malformed record shouldn't sink the whole catalog
 export function parseFonts<Schema extends z.ZodType>(
 	items: Array<unknown>,
 	schema: Schema,

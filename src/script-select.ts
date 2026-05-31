@@ -16,7 +16,11 @@ export class FontScriptSelect extends HTMLElement {
 
 	connectedCallback(): void {
 		this.innerHTML = `<astro-dev-toolbar-button button-style="gray" size="small" aria-haspopup="true" aria-expanded="false"></astro-dev-toolbar-button>`;
-		this.trigger = this.querySelector('astro-dev-toolbar-button')!;
+		const trigger = this.querySelector<HTMLElement>('astro-dev-toolbar-button');
+
+		if (!trigger) return;
+
+		this.trigger = trigger;
 
 		this.root = this.getRootNode() as ShadowRoot;
 		this.panel = document.createElement('div');
@@ -29,25 +33,33 @@ export class FontScriptSelect extends HTMLElement {
 			</div>
 			<div class="fdt-scripts-list" role="listbox" aria-multiselectable="true"></div>
 		`;
-		this.search = this.panel.querySelector('.fdt-scripts-search')!;
-		this.list = this.panel.querySelector('.fdt-scripts-list')!;
+		const search = this.panel.querySelector<HTMLInputElement>('.fdt-scripts-search');
+		const list = this.panel.querySelector<HTMLDivElement>('.fdt-scripts-list');
+		const clearButton = this.panel.querySelector<HTMLButtonElement>('.fdt-scripts-clear');
+		if (!search || !list || !clearButton) return;
+		this.search = search;
+		this.list = list;
 		this.root.append(this.panel);
 
 		this.trigger.addEventListener('click', () => {
 			if (this.panel.hidden) this.open();
 			else this.close();
 		});
+
 		this.search.addEventListener('input', () => {
 			this.renderList();
 		});
-		this.panel.querySelector('.fdt-scripts-clear')!.addEventListener('click', () => {
+
+		clearButton.addEventListener('click', () => {
 			this.selected.clear();
 			this.renderList();
 			this.updateTrigger();
 			this.emit();
 		});
+
 		this.list.addEventListener('change', (event) => {
-			const checkbox = event.target as HTMLInputElement;
+			const checkbox = event.target;
+			if (!(checkbox instanceof HTMLInputElement)) return;
 			const script = checkbox.dataset.script;
 			if (!script) return;
 			if (checkbox.checked) this.selected.add(script);
@@ -120,16 +132,22 @@ export class FontScriptSelect extends HTMLElement {
 
 	private renderList(): void {
 		const query = this.search.value.toLowerCase().trim();
-		this.list.innerHTML = this.available
-			.filter(
-				(script) =>
-					!query || scriptLabel(script).toLowerCase().includes(query) || script.includes(query),
-			)
-			.map((script) => {
-				const checked = this.selected.has(script) ? ' checked' : '';
-				return `<label class="fdt-scripts-item"><input type="checkbox" data-script="${script}"${checked} />${scriptLabel(script)}</label>`;
-			})
-			.join('');
+		const fragment = document.createDocumentFragment();
+
+		for (const script of this.available) {
+			if (query && !scriptLabel(script).toLowerCase().includes(query) && !script.includes(query)) {
+				continue;
+			}
+			const label = document.createElement('label');
+			label.className = 'fdt-scripts-item';
+			const checkbox = document.createElement('input');
+			checkbox.type = 'checkbox';
+			checkbox.dataset.script = script;
+			checkbox.checked = this.selected.has(script);
+			label.append(checkbox, scriptLabel(script));
+			fragment.append(label);
+		}
+		this.list.replaceChildren(fragment);
 	}
 
 	private readonly reposition = (): void => {
@@ -138,13 +156,17 @@ export class FontScriptSelect extends HTMLElement {
 
 	private updateTrigger(): void {
 		const count = this.selected.size;
+
 		if (count === 0) {
 			this.trigger.textContent = 'All scripts';
 			return;
 		}
 		const [first] = this.getSelected();
+
+		if (!first) return;
+
 		this.trigger.textContent =
-			count > 1 ? `${scriptLabel(first!)} +${String(count - 1)}` : scriptLabel(first!);
+			count > 1 ? `${scriptLabel(first)} +${String(count - 1)}` : scriptLabel(first);
 	}
 }
 

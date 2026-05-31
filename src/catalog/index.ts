@@ -38,6 +38,7 @@ async function assembleCatalog(providers: Array<ProviderName>): Promise<Array<Ca
 		googlePopularityMap(),
 	]);
 	const byFamily = new Map<string, CatalogFont>();
+
 	for (const list of lists) {
 		for (const font of list) {
 			const existing = byFamily.get(font.family);
@@ -52,6 +53,7 @@ async function assembleCatalog(providers: Array<ProviderName>): Promise<Array<Ca
 			}
 			if (font.popularity === undefined) {
 				const joined = popularity.get(font.family);
+
 				if (joined) {
 					font.popularity = joined.popularity;
 					font.trending = joined.trending;
@@ -60,6 +62,7 @@ async function assembleCatalog(providers: Array<ProviderName>): Promise<Array<Ca
 			byFamily.set(font.family, font);
 		}
 	}
+
 	return [...byFamily.values()].toSorted(
 		(first, second) => (first.popularity ?? Infinity) - (second.popularity ?? Infinity),
 	);
