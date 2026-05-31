@@ -129,19 +129,22 @@ export class FontScriptSelect extends HTMLElement {
 	private open(): void {
 		this.panel.hidden = false;
 		this.trigger.setAttribute('aria-expanded', 'true');
-		this.position();
 		this.renderList();
+		this.position();
 		this.search.focus();
 	}
 
 	private position(): void {
 		const rect = this.trigger.getBoundingClientRect();
 		const style = this.panel.style;
-		// Opens upward; the control sits in the bottom bar.
-		style.left = `${String(Math.round(rect.left))}px`;
+		const margin = 8;
 		style.top = 'auto';
 		style.bottom = `${String(Math.round(globalThis.innerHeight - rect.top + 4))}px`;
 		style.maxHeight = `${String(Math.round(Math.max(minPanelHeight, rect.top - 12)))}px`;
+		const panelWidth = this.panel.offsetWidth;
+		const overflowsRight = rect.left + panelWidth > globalThis.innerWidth - margin;
+		const left = overflowsRight ? rect.right - panelWidth : rect.left;
+		style.left = `${String(Math.round(Math.max(margin, left)))}px`;
 	}
 
 	private renderList(): void {
