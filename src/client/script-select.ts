@@ -1,3 +1,4 @@
+import { html } from './dom-tags.js';
 import { scriptLabel } from './scripts.js';
 
 const minPanelHeight = 140;
@@ -15,7 +16,14 @@ export class FontScriptSelect extends HTMLElement {
 	private trigger!: HTMLElement;
 
 	connectedCallback(): void {
-		this.innerHTML = `<astro-dev-toolbar-button button-style="gray" size="small" aria-haspopup="true" aria-expanded="false"></astro-dev-toolbar-button>`;
+		this.innerHTML = html`
+			<astro-dev-toolbar-button
+				button-style="gray"
+				size="small"
+				aria-haspopup="true"
+				aria-expanded="false"
+			></astro-dev-toolbar-button>
+		`;
 		const trigger = this.querySelector<HTMLElement>('astro-dev-toolbar-button');
 
 		if (!trigger) return;
@@ -26,9 +34,15 @@ export class FontScriptSelect extends HTMLElement {
 		this.panel = document.createElement('div');
 		this.panel.className = 'fdt-scripts-panel';
 		this.panel.hidden = true;
-		this.panel.innerHTML = `
+		this.panel.innerHTML = html`
 			<div class="fdt-scripts-head">
-				<input type="text" class="fdt-scripts-search" placeholder="Filter scripts..." autocomplete="off" spellcheck="false" />
+				<input
+					type="text"
+					class="fdt-scripts-search"
+					placeholder="Filter scripts..."
+					autocomplete="off"
+					spellcheck="false"
+				/>
 				<button type="button" class="fdt-scripts-clear">Clear</button>
 			</div>
 			<div class="fdt-scripts-list" role="listbox" aria-multiselectable="true"></div>

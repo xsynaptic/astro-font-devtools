@@ -21,8 +21,9 @@ export default function fontDevtools(options: Options = {}): AstroIntegration {
 
 	return {
 		hooks: {
-			'astro:config:setup': ({ addDevToolbarApp, command }) => {
+			'astro:config:setup': ({ addDevToolbarApp, command, updateConfig }) => {
 				if (command !== 'dev') return;
+				updateConfig({ vite: { optimizeDeps: { include: ['zod'] } } });
 				addDevToolbarApp({
 					// Source in dev (Vite compiles the .ts), built file once published.
 					entrypoint: new URL(

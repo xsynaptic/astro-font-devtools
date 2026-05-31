@@ -1,4 +1,5 @@
 import { icons } from '../shared/icons.js';
+import { html } from './dom-tags.js';
 
 export interface ComboboxOption {
 	category: string;
@@ -6,15 +7,18 @@ export interface ComboboxOption {
 	variable: boolean;
 }
 
-export const rowHeight = 26; // px per row; the .fdt-option CSS height in toolbar.ts derives from this
+export const rowHeight = 26; // px per row; the .fdt-option CSS height in toolbar-styles.ts derives from this
 
 const bufferRows = 6; // extra rows rendered above and below the visible window
 const minDropdownHeight = 120;
 
 // Row markup, cloned per visible option. Filling via textContent keeps family names injection-safe.
 const rowTemplate = document.createElement('template');
-rowTemplate.innerHTML =
-	'<div class="fdt-option" role="option"><span class="fdt-fam"></span><span class="fdt-var">VAR</span></div>';
+rowTemplate.innerHTML = html`
+  <div class="fdt-option" role="option">
+  	<span class="fdt-fam"></span><span class="fdt-var">VAR</span>
+  </div>
+`;
 
 export class FontCombobox extends HTMLElement {
 	private activeIndex = -1;
@@ -29,10 +33,12 @@ export class FontCombobox extends HTMLElement {
 	private sizer!: HTMLDivElement;
 
 	connectedCallback(): void {
-		this.innerHTML = `
+		this.innerHTML = html`
 			<div class="fdt-combobox">
 				<input type="text" placeholder="Type to filter..." autocomplete="off" spellcheck="false" />
-				<button type="button" class="fdt-combo-clear" aria-label="Clear font" tabindex="-1" hidden>${icons.close}</button>
+				<button type="button" class="fdt-combo-clear" aria-label="Clear font" tabindex="-1" hidden>
+					${icons.close}
+				</button>
 			</div>
 		`;
 		const input = this.querySelector<HTMLInputElement>('input');
