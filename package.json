@@ -20,32 +20,32 @@
 	},
 	"license": "MIT",
 	"author": "Alexander Synaptic <x@spectralcodex.com>",
-	"private": true,
 	"type": "module",
-	"exports": {
-		".": "./src/integration.ts"
+	"engines": {
+		"node": ">=22.12.0"
 	},
+	"exports": {
+		".": {
+			"types": "./dist/integration.d.mts",
+			"import": "./dist/integration.mjs"
+		}
+	},
+	"main": "./dist/integration.mjs",
+	"types": "./dist/integration.d.mts",
 	"files": [
-		"dist",
-		"src"
+		"dist"
 	],
 	"publishConfig": {
-		"exports": {
-			".": {
-				"types": "./dist/integration.d.mts",
-				"import": "./dist/integration.mjs"
-			}
-		},
-		"main": "./dist/integration.mjs",
-		"types": "./dist/integration.d.mts"
+		"access": "public"
 	},
 	"scripts": {
 		"build": "tsdown",
+		"dev": "tsdown --watch",
 		"check": "tsc --noEmit",
 		"format": "prettier --write . && eslint . --fix && tsc --noEmit && knip",
 		"knip": "knip",
-		"lint": "eslint .",
-		"prepublishOnly": "pnpm build"
+		"lint": "eslint . --max-warnings=0",
+		"prepublishOnly": "pnpm lint && pnpm check && pnpm knip && pnpm build"
 	},
 	"dependencies": {
 		"unifont": "^0.7.4",
@@ -57,7 +57,7 @@
 	"devDependencies": {
 		"@eslint/config-helpers": "^0.6.0",
 		"@eslint/js": "^9.39.4",
-		"@stylistic/eslint-plugin": "6.0.0-beta.4",
+		"@stylistic/eslint-plugin": "^6.0.0-beta.4",
 		"@types/node": "^22.0.0",
 		"astro": "^6.3.8",
 		"eslint": "^9.39.4",

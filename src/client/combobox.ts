@@ -15,9 +15,9 @@ const minDropdownHeight = 120;
 // Row markup, cloned per visible option. Filling via textContent keeps family names injection-safe.
 const rowTemplate = document.createElement('template');
 rowTemplate.innerHTML = html`
-  <div class="fdt-option" role="option">
-  	<span class="fdt-fam"></span><span class="fdt-var">VAR</span>
-  </div>
+	<div class="fdt-option" role="option">
+		<span class="fdt-fam"></span><span class="fdt-var">VAR</span>
+	</div>
 `;
 
 export class FontCombobox extends HTMLElement {
@@ -191,7 +191,6 @@ export class FontCombobox extends HTMLElement {
 
 				break;
 			}
-			// No default
 		}
 	}
 

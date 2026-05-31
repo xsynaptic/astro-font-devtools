@@ -48,6 +48,8 @@ export default defineConfig(
 			],
 			'@typescript-eslint/switch-exhaustiveness-check': 'error',
 			'unicorn/prevent-abbreviations': 'off',
+			// Incompatible with Prettier handling template literal formatting
+			'unicorn/template-indent': 'off',
 		},
 	},
 );

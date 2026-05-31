@@ -25,7 +25,6 @@ export default function fontDevtools(options: Options = {}): AstroIntegration {
 				if (command !== 'dev') return;
 				updateConfig({ vite: { optimizeDeps: { include: ['zod'] } } });
 				addDevToolbarApp({
-					// Source in dev (Vite compiles the .ts), built file once published.
 					entrypoint: new URL(
 						import.meta.url.endsWith('.ts') ? 'toolbar.ts' : 'toolbar.mjs',
 						import.meta.url,
