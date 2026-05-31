@@ -17,7 +17,7 @@ const providerFactories = {
 
 const fontStyles = new Set<string>(['italic', 'normal', 'oblique'] satisfies Array<FontStyles>);
 
-let unifontPromise: Promise<UnifontInstance> | undefined;
+const unifontCache = new Map<string, Promise<UnifontInstance>>();
 
 export function createResolveHandler(providers: Array<ProviderName>): Connect.NextHandleFunction {
 	return (req, res) => {
@@ -36,14 +36,13 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 		const styles = (params.get('styles') ?? 'normal,italic')
 			.split(',')
 			.filter((style): style is FontStyles => fontStyles.has(style));
-		const only = provider ? [provider] : undefined;
-		getUnifont(providers)
+		const scoped =
+			provider && isProviderName(provider) && providers.includes(provider)
+				? [provider]
+				: providers;
+		getUnifont(scoped)
 			.then((unifont) =>
-				unifont.resolveFont(
-					family,
-					{ formats: ['woff2'], styles, subsets: ['latin'], weights },
-					only,
-				),
+				unifont.resolveFont(family, { formats: ['woff2'], styles, subsets: ['latin'], weights }),
 			)
 			.then((result) => {
 				const css = result.fonts.map((face) => renderFontFace(family, face)).join('\n');
@@ -59,12 +58,26 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 }
 
 function getUnifont(providers: Array<ProviderName>): Promise<UnifontInstance> {
+	const key = [...providers].toSorted().join(',');
+	const cached = unifontCache.get(key);
+
+	if (cached) return cached;
+
 	const [first, ...rest] = providers.map((name): Provider => providerFactories[name]());
 	if (!first) throw new Error('astro-font-devtools: resolve handler needs at least one provider');
 
-	unifontPromise ??= createUnifont([first, ...rest], { storage: memoryStorage() });
+	const promise = createUnifont([first, ...rest], { storage: memoryStorage() });
 
-	return unifontPromise;
+	unifontCache.set(key, promise);
+	void promise.catch(() => {
+		unifontCache.delete(key);
+	});
+
+	return promise;
+}
+
+function isProviderName(value: string): value is ProviderName {
+	return value in providerFactories;
 }
 
 function memoryStorage(): Storage {
