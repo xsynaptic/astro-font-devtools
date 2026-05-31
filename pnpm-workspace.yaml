@@ -6,3 +6,5 @@ allowBuilds:
   sharp: true
 
 minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - '@xsynaptic/astro-font-devtools'

@@ -41,7 +41,7 @@
 	"scripts": {
 		"build": "tsdown",
 		"dev": "tsdown --watch",
-		"playground": "pnpm build && pnpm --filter playground dev",
+		"playground": "pnpm --filter playground dev",
 		"check": "tsc --noEmit",
 		"format": "prettier --write . && eslint . --fix && tsc --noEmit && knip",
 		"knip": "knip",

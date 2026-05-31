@@ -67,8 +67,8 @@ importers:
   playground:
     dependencies:
       '@xsynaptic/astro-font-devtools':
-        specifier: link:..
-        version: link:..
+        specifier: latest
+        version: 0.0.1(astro@6.4.2(@types/node@22.19.19)(jiti@2.7.0)(rollup@4.60.4)(yaml@2.9.0))
       astro:
         specifier: ^6.4.2
         version: 6.4.2(@types/node@22.19.19)(jiti@2.7.0)(rollup@4.60.4)(yaml@2.9.0)
@@ -1219,6 +1219,12 @@ packages:
 
   '@vitest/utils@4.1.7':
     resolution: {integrity: sha512-T532WBu791cBxJlCl6SO+J14l81DQx6uQHm1bQbmCDY7nqlEIgkza/UFnSBNaUtSf41unldDFjdOBYEQC4b5Hw==}
+
+  '@xsynaptic/astro-font-devtools@0.0.1':
+    resolution: {integrity: sha512-TfYC/Lue0SU50tdRkLxSBl4k2f+f4MpOusWES1pXNy33SGhpcRt48FIKaXmsJDLKYFKta2lpDqcBMBe9qQyXNg==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      astro: ^6.3.8
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -3589,6 +3595,12 @@ snapshots:
       '@vitest/pretty-format': 4.1.7
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
+
+  '@xsynaptic/astro-font-devtools@0.0.1(astro@6.4.2(@types/node@22.19.19)(jiti@2.7.0)(rollup@4.60.4)(yaml@2.9.0))':
+    dependencies:
+      astro: 6.4.2(@types/node@22.19.19)(jiti@2.7.0)(rollup@4.60.4)(yaml@2.9.0)
+      unifont: 0.7.4
+      zod: 4.4.3
 
   acorn-jsx@5.3.2(acorn@8.16.0):
     dependencies:

@@ -5,6 +5,8 @@ them live on your site.
 
 > Early prototype; the API is still changing.
 
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/xsynaptic/astro-font-devtools/tree/main/playground)
+
 ## Setup
 
 Requires Astro 6+.
