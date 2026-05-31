@@ -1,4 +1,5 @@
 import { defineToolbarApp } from 'astro/toolbar';
+import * as z from 'zod';
 
 import type { ComboboxOption, FontCombobox } from './combobox.js';
 import type { FontScriptSelect } from './script-select.js';
@@ -12,18 +13,21 @@ import { icons } from './icons.js';
 import { sortedScripts, toBaseScripts } from './scripts.js';
 import { fontCategories } from './types.js';
 
-interface Selection {
-	family: string;
-	italic?: boolean;
-	weight?: number;
-}
+const selectionSchema = z.object({
+	family: z.string(),
+	italic: z.boolean().optional(),
+	weight: z.number().optional(),
+});
 
 // Working state in sessionStorage: the fonts applied per target, plus the targets the user added
 // at runtime (pick / Add). Config targets re-seed on each load; these layer on top.
-interface State {
-	added: Array<string>;
-	selections: Record<string, Selection>;
-}
+const stateSchema = z.object({
+	added: z.array(z.string()),
+	selections: z.record(z.string(), selectionSchema),
+});
+
+type Selection = z.infer<typeof selectionSchema>;
+type State = z.infer<typeof stateSchema>;
 
 const appId = 'astro-font-devtools';
 const storageKey = 'astro-font-devtools:state';
@@ -131,13 +135,14 @@ function loadCatalog(): Promise<Array<CatalogFont>> {
 }
 
 function loadState(): State {
+	const fallback: State = { added: [], selections: {} };
+	const raw = sessionStorage.getItem(storageKey);
+	if (!raw) return fallback;
 	try {
-		const raw = sessionStorage.getItem(storageKey);
-		if (!raw) return { added: [], selections: {} };
-		const parsed = JSON.parse(raw) as Partial<State>;
-		return { added: parsed.added ?? [], selections: parsed.selections ?? {} };
+		const parsed = stateSchema.safeParse(JSON.parse(raw));
+		return parsed.success ? parsed.data : fallback;
 	} catch {
-		return { added: [], selections: {} };
+		return fallback;
 	}
 }
 
@@ -606,7 +611,8 @@ async function resolveCss(
 	});
 	if (provider) params.set('provider', provider);
 
-	return fetch(`${resolveUrl}?${params.toString()}`).then((response) => response.text());
+	const response = await fetch(`${resolveUrl}?${params.toString()}`);
+	return response.text();
 }
 
 function saveState(state: State): void {

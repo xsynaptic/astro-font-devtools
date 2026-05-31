@@ -15,7 +15,6 @@ const providerFactories = {
 	google: unifontProviders.google,
 } satisfies Record<ProviderName, () => Provider>;
 
-// Query params are untrusted; keep only styles unifont actually understands.
 const fontStyles = new Set<string>(['italic', 'normal', 'oblique'] satisfies Array<FontStyles>);
 
 let unifontPromise: Promise<UnifontInstance> | undefined;
@@ -59,12 +58,10 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 }
 
 function getUnifont(providers: Array<ProviderName>): Promise<UnifontInstance> {
-	const instances = providers.map((name) => providerFactories[name]());
+	const [first, ...rest] = providers.map((name): Provider => providerFactories[name]());
+	if (!first) throw new Error('astro-font-devtools: resolve handler needs at least one provider');
 
-	// createUnifont wants a non-empty tuple; `providers` always has at least one entry.
-	unifontPromise ??= createUnifont(instances as [Provider, ...Array<Provider>], {
-		storage: memoryStorage(),
-	});
+	unifontPromise ??= createUnifont([first, ...rest], { storage: memoryStorage() });
 
 	return unifontPromise;
 }
