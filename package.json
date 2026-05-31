@@ -19,7 +19,7 @@
 		"url": "git+https://github.com/xsynaptic/astro-font-devtools.git"
 	},
 	"license": "MIT",
-	"author": "Alexander Synaptic <x@spectralcodex.com>",
+	"author": "Alexander Synaptic <alexander@synapticism.com>",
 	"type": "module",
 	"engines": {
 		"node": ">=22.12.0"

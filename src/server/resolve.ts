@@ -37,9 +37,7 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 			.split(',')
 			.filter((style): style is FontStyles => fontStyles.has(style));
 		const scoped =
-			provider && isProviderName(provider) && providers.includes(provider)
-				? [provider]
-				: providers;
+			provider && isProviderName(provider) && providers.includes(provider) ? [provider] : providers;
 		getUnifont(scoped)
 			.then((unifont) =>
 				unifont.resolveFont(family, { formats: ['woff2'], styles, subsets: ['latin'], weights }),
