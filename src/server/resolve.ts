@@ -5,8 +5,9 @@ import { createUnifont, providers as unifontProviders } from 'unifont';
 
 import type { ProviderName } from '../shared/types.js';
 
+import { memoizeByProviders } from './provider-cache.js';
+
 type Storage = NonNullable<UnifontOptions['storage']>;
-type UnifontInstance = Awaited<ReturnType<typeof createUnifont>>;
 
 const providerFactories = {
 	bunny: unifontProviders.bunny,
@@ -17,7 +18,13 @@ const providerFactories = {
 
 const fontStyles = new Set<string>(['italic', 'normal', 'oblique'] satisfies Array<FontStyles>);
 
-const unifontCache = new Map<string, Promise<UnifontInstance>>();
+const getUnifont = memoizeByProviders((providers) => {
+	const [first, ...rest] = providers.map((name): Provider => providerFactories[name]());
+
+	if (!first) throw new Error('astro-font-devtools: resolve handler needs at least one provider');
+
+	return createUnifont([first, ...rest], { storage: memoryStorage() });
+});
 
 export function createResolveHandler(providers: Array<ProviderName>): Connect.NextHandleFunction {
 	return (req, res) => {
@@ -53,25 +60,6 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 				res.end('/* resolve failed */');
 			});
 	};
-}
-
-function getUnifont(providers: Array<ProviderName>): Promise<UnifontInstance> {
-	const key = [...providers].toSorted().join(',');
-	const cached = unifontCache.get(key);
-
-	if (cached) return cached;
-
-	const [first, ...rest] = providers.map((name): Provider => providerFactories[name]());
-	if (!first) throw new Error('astro-font-devtools: resolve handler needs at least one provider');
-
-	const promise = createUnifont([first, ...rest], { storage: memoryStorage() });
-
-	unifontCache.set(key, promise);
-	void promise.catch(() => {
-		unifontCache.delete(key);
-	});
-
-	return promise;
 }
 
 function isProviderName(value: string): value is ProviderName {

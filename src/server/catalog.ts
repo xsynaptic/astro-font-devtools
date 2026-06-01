@@ -2,6 +2,7 @@ import type { Connect } from 'vite';
 
 import type { CatalogFont, ProviderName } from '../shared/types.js';
 
+import { memoizeByProviders } from './provider-cache.js';
 import { bunnyCatalog } from './providers/bunny.js';
 import { fontshareCatalog } from './providers/fontshare.js';
 import { fontsourceCatalog } from './providers/fontsource.js';
@@ -14,7 +15,7 @@ const adapters: Record<ProviderName, () => Promise<Array<CatalogFont>>> = {
 	google: googleCatalog,
 };
 
-const catalogCache = new Map<string, Promise<Array<CatalogFont>>>();
+const buildCatalog = memoizeByProviders(assembleCatalog);
 
 export function createCatalogHandler(providers: Array<ProviderName>): Connect.NextHandleFunction {
 	return (_req, res) => {
@@ -91,19 +92,3 @@ async function assembleCatalog(providers: Array<ProviderName>): Promise<Array<Ca
 	);
 }
 
-function buildCatalog(providers: Array<ProviderName>): Promise<Array<CatalogFont>> {
-	const key = [...providers].toSorted().join(',');
-	const cached = catalogCache.get(key);
-
-	if (cached) return cached;
-
-	const promise = assembleCatalog(providers);
-
-	catalogCache.set(key, promise);
-	// Drop a failed build so the next request retries instead of getting the cached rejection.
-	void promise.catch(() => {
-		catalogCache.delete(key);
-	});
-
-	return promise;
-}
