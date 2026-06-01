@@ -17,23 +17,7 @@ const adapters: Record<ProviderName, () => Promise<Array<CatalogFont>>> = {
 
 const buildCatalog = memoizeByProviders(assembleCatalog);
 
-export function createCatalogHandler(providers: Array<ProviderName>): Connect.NextHandleFunction {
-	return (_req, res) => {
-		buildCatalog(providers)
-			.then((catalog) => {
-				res.setHeader('content-type', 'application/json');
-				res.setHeader('cache-control', 'no-store');
-				res.end(JSON.stringify(catalog));
-			})
-			.catch((error: unknown) => {
-				res.statusCode = 502;
-				res.setHeader('content-type', 'application/json');
-				res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'unknown' }));
-			});
-	};
-}
-
-async function assembleCatalog(providers: Array<ProviderName>): Promise<Array<CatalogFont>> {
+export async function assembleCatalog(providers: Array<ProviderName>): Promise<Array<CatalogFont>> {
 	const [results, popularity] = await Promise.all([
 		Promise.allSettled(providers.map((name) => adapters[name]())),
 		googlePopularityMap().catch(() => new Map<string, { popularity: number; trending: number }>()),
@@ -92,3 +76,18 @@ async function assembleCatalog(providers: Array<ProviderName>): Promise<Array<Ca
 	);
 }
 
+export function createCatalogHandler(providers: Array<ProviderName>): Connect.NextHandleFunction {
+	return (_req, res) => {
+		buildCatalog(providers)
+			.then((catalog) => {
+				res.setHeader('content-type', 'application/json');
+				res.setHeader('cache-control', 'no-store');
+				res.end(JSON.stringify(catalog));
+			})
+			.catch((error: unknown) => {
+				res.statusCode = 502;
+				res.setHeader('content-type', 'application/json');
+				res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'unknown' }));
+			});
+	};
+}

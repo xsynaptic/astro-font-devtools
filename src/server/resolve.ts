@@ -62,22 +62,7 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 	};
 }
 
-function isProviderName(value: string): value is ProviderName {
-	return value in providerFactories;
-}
-
-function memoryStorage(): Storage {
-	const store = new Map<string, unknown>();
-
-	return {
-		getItem: (key) => store.get(key),
-		setItem: (key, value) => {
-			store.set(key, value);
-		},
-	};
-}
-
-function renderFontFace(family: string, data: FontFaceData): string {
+export function renderFontFace(family: string, data: FontFaceData): string {
 	const src = data.src
 		.map((source) =>
 			'name' in source
@@ -93,4 +78,19 @@ function renderFontFace(family: string, data: FontFaceData): string {
 	if (data.unicodeRange) lines.push(`unicode-range: ${data.unicodeRange.join(', ')}`);
 
 	return `@font-face { ${lines.join('; ')}; }`;
+}
+
+function isProviderName(value: string): value is ProviderName {
+	return value in providerFactories;
+}
+
+function memoryStorage(): Storage {
+	const store = new Map<string, unknown>();
+
+	return {
+		getItem: (key) => store.get(key),
+		setItem: (key, value) => {
+			store.set(key, value);
+		},
+	};
 }
