@@ -1,5 +1,5 @@
-import { rowHeight } from './combobox.js';
 import { css } from './dom-tags.js';
+import { rowHeight } from './tokens.js';
 
 export const toolbarStyles = css`
 	.fdt-panel {
@@ -25,15 +25,16 @@ export const toolbarStyles = css`
 		scrollbar-width: thin;
 		scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 	}
-	.fdt-row {
+	font-target-row {
+		display: block;
 		padding: 0.3rem 0;
 		border-top: 1px solid rgba(255, 255, 255, 0.08);
 	}
-	.fdt-row:first-of-type {
+	font-target-row:first-of-type {
 		border-top: 0;
 		padding-top: 0;
 	}
-	.fdt-row:last-of-type {
+	font-target-row:last-of-type {
 		padding-bottom: 0;
 	}
 	.fdt-rmain {

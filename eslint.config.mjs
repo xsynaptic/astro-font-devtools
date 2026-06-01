@@ -3,6 +3,7 @@ import eslint from '@eslint/js';
 import stylistic from '@stylistic/eslint-plugin';
 import perfectionist from 'eslint-plugin-perfectionist';
 import unicorn from 'eslint-plugin-unicorn';
+import { configs as wcConfigs } from 'eslint-plugin-wc';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -50,6 +51,23 @@ export default defineConfig(
 			'unicorn/prevent-abbreviations': 'off',
 			// Incompatible with Prettier handling template literal formatting
 			'unicorn/template-indent': 'off',
+		},
+	},
+	// Native web components (client/ custom elements)
+	{
+		...wcConfigs['flat/best-practice'],
+		files: ['src/client/**/*.ts'],
+		rules: {
+			...wcConfigs['flat/best-practice'].rules,
+			'wc/define-tag-after-class-definition': 'error',
+			'wc/guard-define-call': 'error',
+			'wc/max-elements-per-file': 'error',
+			// Elements render their own light DOM via innerHTML and query it in the same synchronous
+			// callback; the parser-timing race this rule guards against cannot occur for self-written markup
+			'wc/no-child-traversal-in-connectedcallback': 'off',
+			'wc/no-constructor': 'error',
+			'wc/no-exports-with-element': 'error',
+			'wc/no-method-prefixed-with-on': 'error',
 		},
 	},
 );

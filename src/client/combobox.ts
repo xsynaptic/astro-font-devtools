@@ -1,13 +1,12 @@
 import { icons } from '../shared/icons.js';
 import { html } from './dom-tags.js';
+import { rowHeight } from './tokens.js';
 
 export interface ComboboxOption {
 	category: string;
 	family: string;
 	variable: boolean;
 }
-
-export const rowHeight = 26; // px per row; the .fdt-option CSS height in toolbar-styles.ts derives from this
 
 const bufferRows = 6; // extra rows rendered above and below the visible window
 const minDropdownHeight = 120;

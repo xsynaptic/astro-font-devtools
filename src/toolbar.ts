@@ -2,16 +2,16 @@ import { defineToolbarApp } from 'astro/toolbar';
 import * as z from 'zod';
 
 import type { ComboboxOption } from './client/combobox.js';
+import type { FontTargetRow } from './client/target-row.js';
 import type { CatalogFont } from './shared/types.js';
 
 import './client/combobox.js';
 import './client/script-select.js';
+import './client/target-row.js';
 import { html } from './client/dom-tags.js';
 import { createElementPicker } from './client/element-picker.js';
 import { sortedScripts, toBaseScripts } from './client/scripts.js';
 import { toolbarStyles } from './client/toolbar-styles.js';
-import { icons } from './shared/icons.js';
-import { fontCategories } from './shared/types.js';
 
 const selectionSchema = z.object({
 	family: z.string(),
@@ -26,26 +26,13 @@ const stateSchema = z.object({
 	selections: z.record(z.string(), selectionSchema),
 });
 
-type Selection = z.infer<typeof selectionSchema>;
+export type Selection = z.infer<typeof selectionSchema>;
 type State = z.infer<typeof stateSchema>;
 
 const appId = 'astro-font-devtools';
 const storageKey = 'astro-font-devtools:state';
 const catalogUrl = '/__astro-font-devtools/catalog';
 const resolveUrl = '/__astro-font-devtools/resolve';
-const categories = ['all', ...fontCategories];
-const genericFamilies = new Set([
-	'cursive',
-	'fantasy',
-	'monospace',
-	'sans-serif',
-	'serif',
-	'system-ui',
-	'ui-monospace',
-	'ui-rounded',
-	'ui-sans-serif',
-	'ui-serif',
-]);
 
 const toolbarStyleSheet = new CSSStyleSheet();
 toolbarStyleSheet.replaceSync(toolbarStyles);
@@ -53,14 +40,6 @@ toolbarStyleSheet.replaceSync(toolbarStyles);
 let activePicker: ReturnType<typeof createElementPicker> | undefined;
 let catalog: Array<CatalogFont> | undefined;
 let catalogPromise: Promise<Array<CatalogFont>> | undefined;
-let rowCounter = 0;
-
-interface RowHandle {
-	element: HTMLElement;
-	focusTarget(): void;
-	restore(): void;
-	setOptions(options: Array<ComboboxOption>): void;
-}
 
 function applyWindowPlacement(canvas: ShadowRoot, placement: string | undefined): void {
 	if (!placement) return;
@@ -75,18 +54,6 @@ function defaultSelector(element: HTMLElement): string {
 	if (element.id) return `${tag}#${element.id}`;
 
 	return tag;
-}
-
-function extractFallback(currentValue: string): string {
-	const tokens = currentValue
-		.split(',')
-		.map((token) => token.trim().replaceAll(/^['"]|['"]$/g, ''));
-	for (let index = tokens.length - 1; index >= 0; index -= 1) {
-		const token = tokens[index];
-		if (token && genericFamilies.has(token)) return token;
-	}
-
-	return 'sans-serif';
 }
 
 function findFont(family: string): CatalogFont | undefined {
@@ -110,18 +77,6 @@ function getToolbarPlacement(): string | undefined {
 	const root = toolbar.shadowRoot.querySelector<HTMLElement>('#dev-toolbar-root');
 
 	return root?.dataset.placement;
-}
-
-function injectFontStyle(key: string, css: string): void {
-	document.head.querySelector(`style[data-font-devtools="${key}"]`)?.remove();
-	const style = document.createElement('style');
-	style.dataset.fontDevtools = key;
-	style.textContent = css;
-	document.head.append(style);
-}
-
-function isVarTarget(target: string): boolean {
-	return target.startsWith('--');
 }
 
 function loadCatalog(): Promise<Array<CatalogFont>> {
@@ -204,16 +159,27 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 	const providerFor = (font: CatalogFont): string | undefined =>
 		font.providers.find((provider) => active.has(provider));
 
-	const rowHandles: Array<RowHandle> = [];
+	const rowHandles: Array<FontTargetRow> = [];
 	let currentOptions: Array<ComboboxOption> = [];
 
-	// Arrow (not a hoisted declaration) so the non-null narrowing of `rows` above carries in.
-	const addRow = (target: string, isAdded: boolean): RowHandle => {
-		const handle = renderRow(target, isAdded, providerFor);
-		rows.append(handle.element);
-		rowHandles.push(handle);
+	const sharedDeps = {
+		findFont,
+		getSelection: (target: string): Selection | undefined => loadState().selections[target],
+		providerFor,
+		removeSelection: forgetSelection,
+		resolveCss,
+		setSelection,
+		syncAdded,
+	};
 
-		return handle;
+	// Arrow (not a hoisted declaration) so the non-null narrowing of `rows` above carries in.
+	const addRow = (target: string, isAdded: boolean): FontTargetRow => {
+		const row = document.createElement('font-target-row');
+		row.configure({ ...sharedDeps, initialTarget: target, isAdded });
+		rows.append(row);
+		rowHandles.push(row);
+
+		return row;
 	};
 
 	const state = loadState();
@@ -225,14 +191,14 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 	addButton.addEventListener('click', () => {
 		const handle = addRow('', true);
 		handle.setOptions(currentOptions);
-		handle.element.scrollIntoView({ block: 'nearest' });
+		handle.scrollIntoView({ block: 'nearest' });
 		handle.focusTarget();
 	});
 
 	const picker = createElementPicker((element) => {
 		const handle = addRow(defaultSelector(element), true);
 		handle.setOptions(currentOptions);
-		handle.element.scrollIntoView({ block: 'nearest' });
+		handle.scrollIntoView({ block: 'nearest' });
 	});
 	activePicker = picker;
 	setDisabled(pickButton, true);
@@ -342,268 +308,6 @@ function renderProviderToggles(
 	}
 }
 
-// One row. The target is an editable string applied as a CSS variable (--prefix → setProperty) or
-// a selector (else → injected rule). Identity for persistence is the target string itself.
-function renderRow(
-	initialTarget: string,
-	isAdded: boolean,
-	providerFor: (font: CatalogFont) => string | undefined,
-): RowHandle {
-	rowCounter += 1;
-	const rowId = `fdt-${String(rowCounter)}`;
-	let target = initialTarget;
-	let appliedTarget: string | undefined; // last target a font was applied under (var cleanup)
-	let selectedFont: CatalogFont | undefined;
-	let faceCss = '';
-
-	const row = document.createElement('div');
-	row.className = 'fdt-row';
-	row.innerHTML = html`
-		<div class="fdt-rmain">
-			<input
-				class="fdt-target"
-				spellcheck="false"
-				autocomplete="off"
-				placeholder="--font-var or .selector"
-				aria-label="Target: CSS variable or selector"
-			/>
-			<select class="fdt-category" id="fdt-category-${rowId}" aria-label="Filter by category">
-				${categories.map((category) => `<option value="${category}">${category}</option>`).join('')}
-			</select>
-			<font-combobox></font-combobox>
-			<select data-control="weight" class="fdt-select" aria-label="Font weight" disabled></select>
-			<button
-				data-control="italic"
-				class="fdt-iconbtn fdt-italic"
-				type="button"
-				aria-pressed="false"
-				aria-label="Toggle italic"
-				disabled
-			>
-				${icons.italic}
-			</button>
-			<button data-action="delete" class="fdt-iconbtn" type="button" aria-label="Remove this row">
-				${icons.close}
-			</button>
-		</div>
-	`;
-
-	const targetInputEl = row.querySelector<HTMLInputElement>('.fdt-target');
-	const deleteButtonEl = row.querySelector<HTMLButtonElement>('[data-action="delete"]');
-	const categorySelectEl = row.querySelector<HTMLSelectElement>('.fdt-category');
-	const comboboxEl = row.querySelector('font-combobox');
-	const weightSelectEl = row.querySelector<HTMLSelectElement>('[data-control="weight"]');
-	const italicButtonEl = row.querySelector<HTMLButtonElement>('[data-control="italic"]');
-	if (
-		!targetInputEl ||
-		!deleteButtonEl ||
-		!categorySelectEl ||
-		!comboboxEl ||
-		!weightSelectEl ||
-		!italicButtonEl
-	) {
-		throw new Error('astro-font-devtools: row template is missing its controls');
-	}
-
-	// Re-bind to non-null names; the guard above narrows these, which the hoisted closures below
-	// (isItalic, freezeControls, ...) can't see through the original nullable declarations.
-	const targetInput = targetInputEl;
-	const deleteButton = deleteButtonEl;
-	const categorySelect = categorySelectEl;
-	const combobox = comboboxEl;
-	const weightSelect = weightSelectEl;
-	const italicButton = italicButtonEl;
-
-	function isItalic(): boolean {
-		return italicButton.getAttribute('aria-pressed') === 'true';
-	}
-
-	function setItalic(on: boolean): void {
-		italicButton.setAttribute('aria-pressed', on ? 'true' : 'false');
-	}
-
-	function freezeControls(): void {
-		weightSelect.innerHTML = '';
-		weightSelect.disabled = true;
-		italicButton.disabled = true;
-		setItalic(false);
-	}
-
-	// Weight/italic can't affect a CSS variable (it only carries the family, and we don't control
-	// where it's used), so they stay frozen for --var targets; only selector rows apply them.
-	function syncControlAvailability(): void {
-		if (!selectedFont) return;
-		const variable = isVarTarget(target);
-		weightSelect.disabled = variable || selectedFont.weights.length === 0;
-		italicButton.disabled = variable || !selectedFont.italic;
-		if (italicButton.disabled) setItalic(false);
-	}
-
-	targetInput.value = target;
-	if (isAdded && target) syncAdded('', target);
-
-	// First element a selector currently matches (for fallback font + weight/italic defaults).
-	function refElement(): Element | undefined {
-		if (!target || isVarTarget(target)) return undefined;
-		try {
-			return document.querySelector(target) ?? undefined;
-		} catch {
-			return undefined;
-		}
-	}
-
-	function clearApplication(): void {
-		if (appliedTarget && isVarTarget(appliedTarget)) {
-			document.documentElement.style.removeProperty(appliedTarget);
-		}
-
-		document.head.querySelector(`style[data-font-devtools="${rowId}"]`)?.remove();
-		appliedTarget = undefined;
-	}
-
-	// Apply the current font under the current target, reusing the loaded faces (no refetch).
-	function applyNow(): void {
-		clearApplication();
-		if (!selectedFont || !faceCss || !target) return;
-		const family = selectedFont.family;
-		if (isVarTarget(target)) {
-			const fallback = extractFallback(
-				getComputedStyle(document.documentElement).getPropertyValue(target).trim(),
-			);
-			injectFontStyle(rowId, faceCss);
-			document.documentElement.style.setProperty(target, `"${family}", ${fallback}`);
-		} else {
-			const refEl = refElement();
-			const fallback = refEl ? getComputedStyle(refEl).fontFamily || 'sans-serif' : 'sans-serif';
-			const decls = [`font-family: "${family}", ${fallback} !important`];
-			if (weightSelect.value) decls.push(`font-weight: ${weightSelect.value} !important`);
-			if (isItalic()) decls.push('font-style: italic !important');
-			injectFontStyle(rowId, `${faceCss}\n${target} { ${decls.join('; ')}; }`);
-		}
-
-		appliedTarget = target;
-	}
-
-	function pickDefaultWeight(font: CatalogFont): number {
-		const refEl = refElement();
-		const wanted = refEl ? Number.parseInt(getComputedStyle(refEl).fontWeight, 10) || 400 : 400;
-		if (font.weights.includes(wanted)) return wanted;
-		if (font.weights.includes(400)) return 400;
-
-		return font.weights[0] ?? 400;
-	}
-
-	function populatePanel(font: CatalogFont): void {
-		selectedFont = font;
-		const refEl = refElement();
-		weightSelect.innerHTML = font.weights
-			.map((weight) => `<option value="${String(weight)}">${String(weight)}</option>`)
-			.join('');
-		weightSelect.value = String(pickDefaultWeight(font));
-		setItalic(!!refEl && /^(?:italic|oblique)/.test(getComputedStyle(refEl).fontStyle));
-		syncControlAvailability();
-	}
-
-	function persist(): void {
-		if (!target || !selectedFont) return;
-		const selection: Selection = { family: selectedFont.family };
-		const weight = Number(weightSelect.value);
-		if (!Number.isNaN(weight)) selection.weight = weight;
-		if (isItalic()) selection.italic = true;
-		const state = loadState();
-		state.selections[target] = selection;
-		saveState(state);
-	}
-
-	async function chooseFont(family: string): Promise<void> {
-		const font = findFont(family);
-		if (!font) return;
-		populatePanel(font);
-		faceCss = await resolveCss(family, providerFor(font), font.weights.map(String), [
-			'normal',
-			'italic',
-		]);
-		applyNow();
-		persist();
-	}
-
-	targetInput.addEventListener('input', () => {
-		const next = targetInput.value.trim();
-		if (next === target) return;
-		if (isAdded) syncAdded(target, next);
-		if (target) forgetSelection(target);
-		clearApplication();
-		target = next;
-		applyNow();
-		syncControlAvailability();
-		persist();
-	});
-
-	categorySelect.addEventListener('change', () => {
-		combobox.setSelectedFamily('');
-		combobox.setCategory(categorySelect.value);
-		selectedFont = undefined;
-		freezeControls();
-	});
-
-	combobox.addEventListener('change', (event) => {
-		void chooseFont((event as CustomEvent<ComboboxOption>).detail.family);
-	});
-	combobox.addEventListener('clear', () => {
-		clearApplication();
-		if (target) forgetSelection(target);
-		selectedFont = undefined;
-		faceCss = '';
-		freezeControls();
-	});
-
-	weightSelect.addEventListener('change', () => {
-		applyNow();
-		persist();
-	});
-	italicButton.addEventListener('click', () => {
-		if (italicButton.disabled) return;
-		setItalic(!isItalic());
-		applyNow();
-		persist();
-	});
-
-	deleteButton.addEventListener('click', () => {
-		clearApplication();
-		if (isAdded) syncAdded(target, '');
-		if (target) forgetSelection(target);
-		row.remove();
-	});
-
-	return {
-		element: row,
-		focusTarget(): void {
-			targetInput.focus();
-		},
-		restore(): void {
-			if (!target) return;
-			const saved = loadState().selections[target];
-			if (!saved) return;
-			combobox.setSelectedFamily(saved.family);
-			const font = findFont(saved.family);
-			if (!font) return;
-			populatePanel(font);
-			if (saved.weight !== undefined) weightSelect.value = String(saved.weight);
-			setItalic(saved.italic ?? false);
-			void resolveCss(saved.family, providerFor(font), font.weights.map(String), [
-				'normal',
-				'italic',
-			]).then((css) => {
-				faceCss = css;
-				applyNow();
-			});
-		},
-		setOptions(options: Array<ComboboxOption>): void {
-			combobox.setOptions(options);
-		},
-	};
-}
-
 async function resolveCss(
 	family: string,
 	provider: string | undefined,
@@ -632,6 +336,12 @@ function saveState(state: State): void {
 
 function setDisabled(button: Element, disabled: boolean): void {
 	button.classList.toggle('fdt-disabled', disabled);
+}
+
+function setSelection(target: string, selection: Selection): void {
+	const state = loadState();
+	state.selections[target] = selection;
+	saveState(state);
 }
 
 // Track user-added targets so picks/adds survive reload. Re-keys on edit, drops on delete.
