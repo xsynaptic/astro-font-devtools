@@ -1,6 +1,6 @@
 import type { CatalogFont } from '../shared/types.js';
-import type { Selection } from '../toolbar.js';
 import type { ComboboxOption } from './combobox.js';
+import type { Selection } from './session-store.js';
 
 import { icons } from '../shared/icons.js';
 import { fontCategories } from '../shared/types.js';

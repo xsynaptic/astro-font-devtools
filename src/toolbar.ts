@@ -1,5 +1,4 @@
 import { defineToolbarApp } from 'astro/toolbar';
-import * as z from 'zod';
 
 import type { ComboboxOption } from './client/combobox.js';
 import type { FontTargetRow } from './client/target-row.js';
@@ -11,26 +10,16 @@ import './client/target-row.js';
 import { html } from './client/dom-tags.js';
 import { createElementPicker } from './client/element-picker.js';
 import { sortedScripts, toBaseScripts } from './client/scripts.js';
+import {
+	addedTargets,
+	getSelection,
+	removeSelection,
+	setSelection,
+	syncAdded,
+} from './client/session-store.js';
 import { toolbarStyles } from './client/toolbar-styles.js';
 
-const selectionSchema = z.object({
-	family: z.string(),
-	italic: z.boolean().optional(),
-	weight: z.number().optional(),
-});
-
-// Working state in sessionStorage: the fonts applied per target, plus the targets the user added
-// at runtime (pick / Add). Config targets re-seed on each load; these layer on top.
-const stateSchema = z.object({
-	added: z.array(z.string()),
-	selections: z.record(z.string(), selectionSchema),
-});
-
-export type Selection = z.infer<typeof selectionSchema>;
-type State = z.infer<typeof stateSchema>;
-
 const appId = 'astro-font-devtools';
-const storageKey = 'astro-font-devtools:state';
 const catalogUrl = '/__astro-font-devtools/catalog';
 const resolveUrl = '/__astro-font-devtools/resolve';
 
@@ -58,15 +47,6 @@ function defaultSelector(element: HTMLElement): string {
 
 function findFont(family: string): CatalogFont | undefined {
 	return catalog?.find((font) => font.family === family);
-}
-
-function forgetSelection(target: string): void {
-	const state = loadState();
-	if (!(target in state.selections)) return;
-	state.selections = Object.fromEntries(
-		Object.entries(state.selections).filter(([key]) => key !== target),
-	);
-	saveState(state);
 }
 
 // No public API exposes the toolbar's placement on load (only the change event fires later), so read
@@ -101,19 +81,6 @@ function loadCatalog(): Promise<Array<CatalogFont>> {
 		});
 
 	return catalogPromise;
-}
-
-function loadState(): State {
-	const fallback: State = { added: [], selections: {} };
-	const raw = sessionStorage.getItem(storageKey);
-	if (!raw) return fallback;
-	try {
-		const parsed = stateSchema.safeParse(JSON.parse(raw));
-
-		return parsed.success ? parsed.data : fallback;
-	} catch {
-		return fallback;
-	}
 }
 
 function render(canvas: ShadowRoot, configTargets: Array<string>): void {
@@ -164,9 +131,9 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 
 	const sharedDeps = {
 		findFont,
-		getSelection: (target: string): Selection | undefined => loadState().selections[target],
+		getSelection,
 		providerFor,
-		removeSelection: forgetSelection,
+		removeSelection,
 		resolveCss,
 		setSelection,
 		syncAdded,
@@ -182,8 +149,7 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 		return row;
 	};
 
-	const state = loadState();
-	const initialTargets = [...new Set([...configTargets, ...state.added])];
+	const initialTargets = [...new Set([...configTargets, ...addedTargets()])];
 	for (const target of initialTargets) {
 		addRow(target, !configTargets.includes(target));
 	}
@@ -326,30 +292,8 @@ async function resolveCss(
 	return response.text();
 }
 
-function saveState(state: State): void {
-	try {
-		sessionStorage.setItem(storageKey, JSON.stringify(state));
-	} catch {
-		/* sessionStorage may be unavailable in some contexts */
-	}
-}
-
 function setDisabled(button: Element, disabled: boolean): void {
 	button.classList.toggle('fdt-disabled', disabled);
-}
-
-function setSelection(target: string, selection: Selection): void {
-	const state = loadState();
-	state.selections[target] = selection;
-	saveState(state);
-}
-
-// Track user-added targets so picks/adds survive reload. Re-keys on edit, drops on delete.
-function syncAdded(oldTarget: string, newTarget: string): void {
-	const state = loadState();
-	state.added = state.added.filter((entry) => entry !== oldTarget);
-	if (newTarget && !state.added.includes(newTarget)) state.added.push(newTarget);
-	saveState(state);
 }
 
 export default defineToolbarApp({
