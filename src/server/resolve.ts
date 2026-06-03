@@ -28,23 +28,17 @@ const getUnifont = memoizeByProviders((providers) => {
 
 export function createResolveHandler(providers: Array<ProviderName>): Connect.NextHandleFunction {
 	return (req, res) => {
-		const params = new URL(req.url ?? '', 'http://localhost').searchParams;
-		const family = params.get('family');
+		const query = parseResolveQuery(req.url ?? '', providers);
 
-		if (!family) {
+		if (!query) {
 			res.statusCode = 400;
 			res.end('/* missing family */');
 
 			return;
 		}
 
-		const provider = params.get('provider');
-		const weights = (params.get('weights') ?? '400,700').split(',');
-		const styles = (params.get('styles') ?? 'normal,italic')
-			.split(',')
-			.filter((style): style is FontStyles => fontStyles.has(style));
-		const scoped =
-			provider && isProviderName(provider) && providers.includes(provider) ? [provider] : providers;
+		const { family, scoped, styles, weights } = query;
+
 		getUnifont(scoped)
 			.then((unifont) =>
 				unifont.resolveFont(family, { formats: ['woff2'], styles, subsets: ['latin'], weights }),
@@ -60,6 +54,23 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 				res.end('/* resolve failed */');
 			});
 	};
+}
+
+export function parseResolveQuery(url: string, providers: Array<ProviderName>) {
+	const params = new URL(url, 'http://localhost').searchParams;
+	const family = params.get('family');
+
+	if (!family) return;
+
+	const provider = params.get('provider');
+	const weights = (params.get('weights') ?? '400,700').split(',');
+	const styles = (params.get('styles') ?? 'normal,italic')
+		.split(',')
+		.filter((style): style is FontStyles => fontStyles.has(style));
+	const scoped =
+		provider && isProviderName(provider) && providers.includes(provider) ? [provider] : providers;
+
+	return { family, scoped, styles, weights };
 }
 
 export function renderFontFace(family: string, data: FontFaceData): string {

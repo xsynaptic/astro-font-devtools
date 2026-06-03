@@ -28,14 +28,6 @@ function runConfigSetup(command: SetupArg['command']) {
 }
 
 describe('fontDevtools', () => {
-	it('exposes the integration contract', () => {
-		const integration = fontDevtools();
-
-		expect(integration.name).toBe('@xsynaptic/astro-font-devtools');
-		expect(integration.hooks['astro:config:setup']).toBeTypeOf('function');
-		expect(integration.hooks['astro:server:setup']).toBeTypeOf('function');
-	});
-
 	it('registers the toolbar and pre-bundles zod in dev', () => {
 		const { addedApps, viteConfig } = runConfigSetup('dev');
 

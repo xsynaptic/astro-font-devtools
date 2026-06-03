@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { assembleCatalog } from '../src/server/catalog.js';
 
-// Google metadata backs both googleCatalog and the cross-provider popularity join.
 const googleMeta = {
 	familyMetadataList: [
 		{
@@ -69,7 +68,6 @@ describe('assembleCatalog', () => {
 
 		const catalog = await assembleCatalog(['google', 'fontsource']);
 
-		// Sorted by popularity ascending; Roboto has no signal so it sorts last
 		expect(catalog.map((font) => font.family)).toEqual(['Inter', 'Lato', 'Roboto']);
 
 		const inter = catalog.find((font) => font.family === 'Inter');
