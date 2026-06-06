@@ -99,7 +99,9 @@ describe('parseResolveQuery', () => {
 
 	it('parses custom weights and drops style values that are not real font styles', () => {
 		expect(
-			parseResolveQuery('/resolve?family=Inter&weights=300,600&styles=normal,bogus', ['fontsource']),
+			parseResolveQuery('/resolve?family=Inter&weights=300,600&styles=normal,bogus', [
+				'fontsource',
+			]),
 		).toMatchObject({ styles: ['normal'], weights: ['300', '600'] });
 	});
 
