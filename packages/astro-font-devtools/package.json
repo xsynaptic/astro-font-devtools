@@ -1,0 +1,60 @@
+{
+	"name": "@xsynaptic/astro-font-devtools",
+	"version": "0.2.0",
+	"description": "An Astro dev toolbar plugin for previewing fonts from Google, Fontsource, Bunny, and Fontshare live on your site.",
+	"keywords": [
+		"astro",
+		"astro-integration",
+		"withastro",
+		"dev-toolbar",
+		"fonts",
+		"web-fonts",
+		"google-fonts",
+		"fontsource"
+	],
+	"homepage": "https://github.com/xsynaptic/astro-font-devtools/tree/main/packages/astro-font-devtools#readme",
+	"bugs": "https://github.com/xsynaptic/astro-font-devtools/issues",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/xsynaptic/astro-font-devtools.git",
+		"directory": "packages/astro-font-devtools"
+	},
+	"license": "MIT",
+	"author": "Alexander Synaptic <alexander@synapticism.com>",
+	"type": "module",
+	"engines": {
+		"node": ">=22.12.0"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/integration.d.mts",
+			"import": "./dist/integration.mjs"
+		}
+	},
+	"main": "./dist/integration.mjs",
+	"types": "./dist/integration.d.mts",
+	"files": [
+		"dist"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"dev": "tsdown --watch",
+		"check-types": "tsc --noEmit",
+		"test:e2e": "playwright test"
+	},
+	"dependencies": {
+		"unifont": "^0.7.4",
+		"zod": "^4.4.3"
+	},
+	"peerDependencies": {
+		"astro": "^6.3.8"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.60.0",
+		"astro": "^6.4.6",
+		"vite": "^7.3.5"
+	}
+}

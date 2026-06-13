@@ -29,12 +29,12 @@ function fakeExchange(url: string) {
 	const res = {
 		body: '',
 		end(chunk?: string) {
-			this.body = chunk ?? '';
+			res.body = chunk ?? '';
 			resolveDone();
 		},
 		headers: {} as Record<string, string>,
 		setHeader(key: string, value: string) {
-			this.headers[key] = value;
+			res.headers[key] = value;
 		},
 		statusCode: 200,
 	};

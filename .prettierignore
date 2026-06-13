@@ -1,2 +1,7 @@
 dist
 pnpm-lock.yaml
+.changeset
+.claude
+**/.astro
+test-results
+playwright-report

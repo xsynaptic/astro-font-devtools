@@ -1,8 +1,10 @@
 {
-	"extends": "astro/tsconfigs/strictest",
+	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"outDir": "dist"
+		"noEmit": true,
+		"declaration": false,
+		"allowJs": true,
+		"checkJs": false
 	},
-	"include": ["**/*"],
-	"exclude": ["node_modules", "dist", "playground"]
+	"include": ["*.ts", "*.mjs"]
 }

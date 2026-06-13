@@ -1,4 +1,5 @@
 packages:
+  - packages/*
   - playground
 
 # For local installs use the workspace version; StackBlitz should still resolve to the published package

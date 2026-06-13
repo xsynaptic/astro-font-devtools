@@ -309,7 +309,7 @@ export class FontTargetRow extends HTMLElement {
 			document.documentElement.style.removeProperty(this.appliedTarget);
 		}
 
-		document.head.querySelector(`style[data-font-devtools="${this.rowId}"]`)?.remove();
+		document.head.querySelector(`style[data-font-devtools="${CSS.escape(this.rowId)}"]`)?.remove();
 		this.appliedTarget = undefined;
 	}
 
@@ -391,7 +391,7 @@ function extractFallback(currentValue: string): string {
 }
 
 function injectFontStyle(key: string, css: string): void {
-	document.head.querySelector(`style[data-font-devtools="${key}"]`)?.remove();
+	document.head.querySelector(`style[data-font-devtools="${CSS.escape(key)}"]`)?.remove();
 	const style = document.createElement('style');
 	style.dataset.fontDevtools = key;
 	style.textContent = css;

@@ -256,7 +256,9 @@ function renderProviderToggles(
 			.join('')}`;
 	container.hidden = false;
 	for (const provider of providers) {
-		const button = container.querySelector<HTMLElement>(`[data-provider="${provider}"]`);
+		const button = container.querySelector<HTMLElement>(
+			`[data-provider="${CSS.escape(provider)}"]`,
+		);
 		if (!button) continue;
 		button.addEventListener('click', () => {
 			const isActive = active.has(provider);
