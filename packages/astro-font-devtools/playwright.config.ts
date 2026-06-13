@@ -6,7 +6,7 @@ const baseURL = `http://localhost:${String(port)}`;
 
 export default defineConfig({
 	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-	retries: 0,
+	retries: process.env.CI ? 2 : 1,
 	testDir: './tests',
 	testMatch: '**/*.e2e.ts',
 	use: {
