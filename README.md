@@ -17,7 +17,8 @@ pnpm build        # rebuild the package (tsdown -> dist)
 pnpm playground   # run the playground against the local workspace package
 pnpm test         # run unit tests (vitest)
 pnpm test:e2e     # run end-to-end tests (playwright, drives the playground)
-pnpm check        # lint, type-check, format check, and knip
+pnpm check        # report-only: prettier check, lint, type-check, knip
+pnpm fix          # auto-fix: prettier write + eslint --fix, then type-check + knip
 ```
 
 ## Releasing
