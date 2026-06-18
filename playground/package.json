@@ -9,7 +9,7 @@
 		"preview": "astro preview"
 	},
 	"dependencies": {
-		"@xsynaptic/astro-font-devtools": "*",
-		"astro": "^6.4.6"
+		"@xsynaptic/astro-font-devtools": "workspace:*",
+		"astro": "^6.4.7"
 	}
 }
