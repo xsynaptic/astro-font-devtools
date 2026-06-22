@@ -21,9 +21,8 @@ export default function fontDevtools(options: Options = {}): AstroIntegration {
 
 	return {
 		hooks: {
-			'astro:config:setup': ({ addDevToolbarApp, command, updateConfig }) => {
+			'astro:config:setup': ({ addDevToolbarApp, command }) => {
 				if (command !== 'dev') return;
-				updateConfig({ vite: { optimizeDeps: { include: ['zod'] } } });
 				addDevToolbarApp({
 					entrypoint: new URL(
 						import.meta.url.endsWith('.ts') ? 'toolbar.ts' : 'toolbar.mjs',

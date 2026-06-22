@@ -1,20 +1,15 @@
-import * as z from 'zod';
-
 const storageKey = 'astro-font-devtools:state';
 
-const selectionSchema = z.object({
-	family: z.string(),
-	italic: z.boolean().optional(),
-	weight: z.number().optional(),
-});
+export interface Selection {
+	family: string;
+	italic?: boolean;
+	weight?: number;
+}
 
-const stateSchema = z.object({
-	added: z.array(z.string()),
-	selections: z.record(z.string(), selectionSchema),
-});
-
-export type Selection = z.infer<typeof selectionSchema>;
-type State = z.infer<typeof stateSchema>;
+interface State {
+	added: Array<string>;
+	selections: Record<string, Selection>;
+}
 
 export function addedTargets(): Array<string> {
 	return loadState().added;
@@ -47,14 +42,36 @@ export function syncAdded(oldTarget: string, newTarget: string): void {
 	saveState(state);
 }
 
+function isSelection(value: unknown): value is Selection {
+	if (typeof value !== 'object' || value === null) return false;
+	const candidate = value as Record<string, unknown>;
+	if (typeof candidate.family !== 'string') return false;
+	if (candidate.italic !== undefined && typeof candidate.italic !== 'boolean') return false;
+	if (candidate.weight !== undefined && typeof candidate.weight !== 'number') return false;
+	return true;
+}
+
+function isState(value: unknown): value is State {
+	if (typeof value !== 'object' || value === null) return false;
+	const { added, selections } = value as Record<string, unknown>;
+	if (
+		!Array.isArray(added) ||
+		!(added as Array<unknown>).every((entry) => typeof entry === 'string')
+	) {
+		return false;
+	}
+	if (typeof selections !== 'object' || selections === null) return false;
+	return Object.values(selections as Record<string, unknown>).every(isSelection);
+}
+
 function loadState(): State {
 	const fallback: State = { added: [], selections: {} };
 	const raw = sessionStorage.getItem(storageKey);
 	if (!raw) return fallback;
 	try {
-		const parsed = stateSchema.safeParse(JSON.parse(raw));
+		const parsed: unknown = JSON.parse(raw);
 
-		return parsed.success ? parsed.data : fallback;
+		return isState(parsed) ? parsed : fallback;
 	} catch {
 		return fallback;
 	}

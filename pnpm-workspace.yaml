@@ -13,3 +13,5 @@ allowBuilds:
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - '@xsynaptic/astro-font-devtools'
+  - 'astro'
+  - '@astrojs/markdown-satteri'

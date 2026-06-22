@@ -1,5 +1,11 @@
 # @xsynaptic/astro-font-devtools
 
+## 0.3.0
+
+### Minor Changes
+
+- Add support for Astro 7 and widen the supported peer range to `^6.3.8 || ^7.0.0`.
+
 ## 0.2.0
 
 ### Minor Changes

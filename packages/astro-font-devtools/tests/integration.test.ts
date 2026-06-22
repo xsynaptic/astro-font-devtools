@@ -7,38 +7,28 @@ import fontDevtools from '../src/integration.js';
 type ConfigSetup = NonNullable<AstroIntegration['hooks']['astro:config:setup']>;
 type SetupArg = Parameters<ConfigSetup>[0];
 
-function runConfigSetup(command: SetupArg['command']) {
+function countRegisteredApps(command: SetupArg['command']) {
 	let addedApps = 0;
-	let viteConfig: unknown;
 	const context = {
 		addDevToolbarApp: () => {
 			addedApps += 1;
 		},
 		command,
-		updateConfig: (config: unknown) => {
-			viteConfig = config;
-		},
 	};
 	const setup = fontDevtools().hooks['astro:config:setup'];
 	if (!setup) throw new Error('astro:config:setup hook is missing');
 
 	void setup(context as unknown as SetupArg);
 
-	return { addedApps, viteConfig };
+	return addedApps;
 }
 
 describe('fontDevtools', () => {
-	it('registers the toolbar and pre-bundles zod in dev', () => {
-		const { addedApps, viteConfig } = runConfigSetup('dev');
-
-		expect(addedApps).toBe(1);
-		expect(viteConfig).toEqual({ vite: { optimizeDeps: { include: ['zod'] } } });
+	it('registers the toolbar in dev', () => {
+		expect(countRegisteredApps('dev')).toBe(1);
 	});
 
 	it('does nothing outside dev', () => {
-		const { addedApps, viteConfig } = runConfigSetup('build');
-
-		expect(addedApps).toBe(0);
-		expect(viteConfig).toBeUndefined();
+		expect(countRegisteredApps('build')).toBe(0);
 	});
 });
