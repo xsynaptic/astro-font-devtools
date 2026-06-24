@@ -21,7 +21,7 @@ export function getSelection(target: string): Selection | undefined {
 
 export function removeSelection(target: string): void {
 	const state = loadState();
-	if (!(target in state.selections)) return;
+	if (!Object.hasOwn(state.selections, target)) return;
 	state.selections = Object.fromEntries(
 		Object.entries(state.selections).filter(([key]) => key !== target),
 	);
@@ -47,8 +47,7 @@ function isSelection(value: unknown): value is Selection {
 	const candidate = value as Record<string, unknown>;
 	if (typeof candidate.family !== 'string') return false;
 	if (candidate.italic !== undefined && typeof candidate.italic !== 'boolean') return false;
-	if (candidate.weight !== undefined && typeof candidate.weight !== 'number') return false;
-	return true;
+	return !(candidate.weight !== undefined && typeof candidate.weight !== 'number');
 }
 
 function isState(value: unknown): value is State {
@@ -56,7 +55,7 @@ function isState(value: unknown): value is State {
 	const { added, selections } = value as Record<string, unknown>;
 	if (
 		!Array.isArray(added) ||
-		!(added as Array<unknown>).every((entry) => typeof entry === 'string')
+		(added as Array<unknown>).some((entry) => typeof entry !== 'string')
 	) {
 		return false;
 	}

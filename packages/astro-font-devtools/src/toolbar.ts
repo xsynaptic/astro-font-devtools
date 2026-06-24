@@ -23,12 +23,10 @@ const appId = 'astro-font-devtools';
 const catalogUrl = '/__astro-font-devtools/catalog';
 const resolveUrl = '/__astro-font-devtools/resolve';
 
-const toolbarStyleSheet = new CSSStyleSheet();
-toolbarStyleSheet.replaceSync(toolbarStyles);
-
 let activePicker: ReturnType<typeof createElementPicker> | undefined;
 let catalog: Array<CatalogFont> | undefined;
 let catalogPromise: Promise<Array<CatalogFont>> | undefined;
+let toolbarStyleSheet: CSSStyleSheet | undefined;
 
 function applyWindowPlacement(canvas: ShadowRoot, placement: string | undefined): void {
 	if (!placement) return;
@@ -45,6 +43,22 @@ function defaultSelector(element: HTMLElement): string {
 	return tag;
 }
 
+async function fetchCatalog(): Promise<Array<CatalogFont>> {
+	try {
+		const response = await fetch(catalogUrl);
+		if (!response.ok) throw new Error(`catalog request failed (${String(response.status)})`);
+		const data: unknown = await response.json();
+		if (!Array.isArray(data)) throw new Error('catalog response was not a list');
+		const fonts = data as Array<CatalogFont>;
+		catalog = fonts;
+
+		return fonts;
+	} finally {
+		// Clear so a failed fetch isn't cached and the next open retries
+		catalogPromise = undefined;
+	}
+}
+
 function findFont(family: string): CatalogFont | undefined {
 	return catalog?.find((font) => font.family === family);
 }
@@ -59,26 +73,17 @@ function getToolbarPlacement(): string | undefined {
 	return root?.dataset.placement;
 }
 
+function getToolbarStyleSheet(): CSSStyleSheet {
+	if (toolbarStyleSheet) return toolbarStyleSheet;
+	toolbarStyleSheet = new CSSStyleSheet();
+	toolbarStyleSheet.replaceSync(toolbarStyles);
+
+	return toolbarStyleSheet;
+}
+
 function loadCatalog(): Promise<Array<CatalogFont>> {
 	if (catalog) return Promise.resolve(catalog);
-	catalogPromise ??= fetch(catalogUrl)
-		.then(async (response) => {
-			if (!response.ok) throw new Error(`catalog request failed (${String(response.status)})`);
-			const data: unknown = await response.json();
-			if (!Array.isArray(data)) throw new Error('catalog response was not a list');
-
-			return data as Array<CatalogFont>;
-		})
-		.then((fonts) => {
-			catalog = fonts;
-			catalogPromise = undefined;
-
-			return fonts;
-		})
-		.catch((error: unknown) => {
-			catalogPromise = undefined; // let the next open retry instead of caching the failure
-			throw error;
-		});
+	catalogPromise ??= fetchCatalog();
 
 	return catalogPromise;
 }
@@ -106,7 +111,7 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 			</div>
 		</astro-dev-toolbar-window>
 	`;
-	canvas.adoptedStyleSheets = [toolbarStyleSheet];
+	canvas.adoptedStyleSheets = [getToolbarStyleSheet()];
 
 	// The dev-toolbar window hard-codes 24px padding on its :host; an inline style reclaims space.
 	canvas
@@ -116,10 +121,10 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 	const rows = canvas.querySelector('#fdt-rows');
 	const status = canvas.querySelector('#fdt-status');
 	const pickButton = canvas.querySelector('#fdt-pick');
-	const addButton = canvas.querySelector('#fdt-add');
+	const newTargetButton = canvas.querySelector('#fdt-add');
+	if (!rows || !status || !pickButton || !newTargetButton) return;
 	const providersEl = canvas.querySelector<HTMLElement>('#fdt-providers');
 	const scriptSelect = canvas.querySelector('font-script-select');
-	if (!rows || !status || !pickButton || !addButton) return;
 
 	const active = new Set<string>();
 	const activeScripts = new Set<string>(['latin']);
@@ -154,7 +159,7 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 		addRow(target, !configTargets.includes(target));
 	}
 
-	addButton.addEventListener('click', () => {
+	newTargetButton.addEventListener('click', () => {
 		const handle = addRow('', true);
 		handle.setOptions(currentOptions);
 		handle.scrollIntoView({ block: 'nearest' });
@@ -168,7 +173,7 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 	});
 	activePicker = picker;
 	setDisabled(pickButton, true);
-	setDisabled(addButton, true);
+	setDisabled(newTargetButton, true);
 	pickButton.addEventListener('click', () => {
 		picker.start();
 	});
@@ -179,7 +184,8 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 		.then((fonts) => {
 			status.remove();
 			rows.classList.remove('fdt-rows-locked');
-			for (const provider of fonts.flatMap((font) => font.providers)) active.add(provider);
+			const allProviders = fonts.flatMap((font) => font.providers);
+			for (const provider of allProviders) active.add(provider);
 			const computeOptions = (): Array<ComboboxOption> =>
 				fonts
 					.filter((font) => font.providers.some((provider) => active.has(provider)))
@@ -208,9 +214,9 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 			}
 
 			setDisabled(pickButton, false);
-			setDisabled(addButton, false);
+			setDisabled(newTargetButton, false);
 
-			const available = [...active].toSorted();
+			const available = [...active].toSorted((first, second) => first.localeCompare(second));
 			if (providersEl && available.length > 1) {
 				renderProviderToggles(providersEl, available, active, refreshOptions);
 			}
@@ -294,8 +300,8 @@ async function resolveCss(
 	return response.text();
 }
 
-function setDisabled(button: Element, disabled: boolean): void {
-	button.classList.toggle('fdt-disabled', disabled);
+function setDisabled(button: Element, isDisabled: boolean): void {
+	button.classList.toggle('fdt-disabled', isDisabled);
 }
 
 export default defineToolbarApp({

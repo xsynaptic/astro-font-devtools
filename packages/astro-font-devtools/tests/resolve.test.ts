@@ -21,30 +21,25 @@ vi.mock('unifont', () => ({
 
 const configured: Array<ProviderName> = ['google', 'fontsource'];
 
-function fakeExchange(url: string) {
-	let resolveDone: () => void;
-	const done = new Promise<void>((resolve) => {
-		resolveDone = resolve;
-	});
-	const res = {
-		body: '',
-		end(chunk?: string) {
-			res.body = chunk ?? '';
-			resolveDone();
+// Resolves once the handler calls res.end()
+function runHandler(handler: ReturnType<typeof createResolveHandler>, url: string) {
+	return new Promise<{ body: string; headers: Record<string, string>; statusCode: number }>(
+		(resolve) => {
+			const res = {
+				body: '',
+				end(chunk?: string) {
+					res.body = chunk ?? '';
+					resolve({ body: res.body, headers: res.headers, statusCode: res.statusCode });
+				},
+				headers: {} as Record<string, string>,
+				setHeader(key: string, value: string) {
+					res.headers[key] = value;
+				},
+				statusCode: 200,
+			};
+			handler({ url } as unknown as IncomingMessage, res as unknown as ServerResponse, vi.fn());
 		},
-		headers: {} as Record<string, string>,
-		setHeader(key: string, value: string) {
-			res.headers[key] = value;
-		},
-		statusCode: 200,
-	};
-
-	return {
-		done,
-		req: { url } as unknown as IncomingMessage,
-		res,
-		serverResponse: res as unknown as ServerResponse,
-	};
+	);
 }
 
 beforeEach(() => {
@@ -123,37 +118,28 @@ describe('parseResolveQuery', () => {
 
 describe('createResolveHandler', () => {
 	it('returns 400 when family is missing', async () => {
-		const exchange = fakeExchange('/resolve');
+		const result = await runHandler(createResolveHandler(['fontsource']), '/resolve');
 
-		createResolveHandler(['fontsource'])(exchange.req, exchange.serverResponse, vi.fn());
-		await exchange.done;
-
-		expect(exchange.res.statusCode).toBe(400);
-		expect(exchange.res.body).toContain('missing family');
+		expect(result.statusCode).toBe(400);
+		expect(result.body).toContain('missing family');
 		expect(resolveFont).not.toHaveBeenCalled();
 	});
 
 	it('renders resolved fonts as CSS with text/css and no-store', async () => {
 		resolveFont.mockResolvedValue({ fonts: [{ src: [{ url: '/inter.woff2' }] }] });
-		const exchange = fakeExchange('/resolve?family=Inter');
+		const result = await runHandler(createResolveHandler(['fontsource']), '/resolve?family=Inter');
 
-		createResolveHandler(['fontsource'])(exchange.req, exchange.serverResponse, vi.fn());
-		await exchange.done;
-
-		expect(exchange.res.statusCode).toBe(200);
-		expect(exchange.res.headers['content-type']).toBe('text/css');
-		expect(exchange.res.headers['cache-control']).toBe('no-store');
-		expect(exchange.res.body).toContain('@font-face');
+		expect(result.statusCode).toBe(200);
+		expect(result.headers['content-type']).toBe('text/css');
+		expect(result.headers['cache-control']).toBe('no-store');
+		expect(result.body).toContain('@font-face');
 	});
 
 	it('returns 502 when resolution fails', async () => {
 		resolveFont.mockRejectedValue(new Error('upstream down'));
-		const exchange = fakeExchange('/resolve?family=Inter');
+		const result = await runHandler(createResolveHandler(['fontsource']), '/resolve?family=Inter');
 
-		createResolveHandler(['fontsource'])(exchange.req, exchange.serverResponse, vi.fn());
-		await exchange.done;
-
-		expect(exchange.res.statusCode).toBe(502);
-		expect(exchange.res.body).toContain('resolve failed');
+		expect(result.statusCode).toBe(502);
+		expect(result.body).toContain('resolve failed');
 	});
 });

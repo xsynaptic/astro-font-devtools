@@ -12,6 +12,7 @@ allowBuilds:
 
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
-  - '@xsynaptic/astro-font-devtools'
   - 'astro'
   - '@astrojs/markdown-satteri'
+  - '@xsynaptic/astro-font-devtools'
+  - '@xsynaptic/eslint-config'

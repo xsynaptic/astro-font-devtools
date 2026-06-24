@@ -1,6 +1,6 @@
 {
 	"name": "@xsynaptic/astro-font-devtools",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "An Astro dev toolbar plugin for previewing fonts from Google, Fontsource, Bunny, and Fontshare live on your site.",
 	"keywords": [
 		"astro",
@@ -23,7 +23,7 @@
 	"author": "Alexander Synaptic <alexander@synapticism.com>",
 	"type": "module",
 	"engines": {
-		"node": ">=22.13.0"
+		"node": ">=24.0.0"
 	},
 	"exports": {
 		".": {
@@ -54,7 +54,7 @@
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.61.0",
-		"astro": "^7.0.0",
+		"astro": "^7.0.2",
 		"vite": "^8.0.0"
 	}
 }

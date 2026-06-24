@@ -167,8 +167,8 @@ class FontScriptSelect extends HTMLElement {
 		style.bottom = `${String(Math.round(globalThis.innerHeight - rect.top + 4))}px`;
 		style.maxHeight = `${String(Math.round(Math.max(minPanelHeight, rect.top - 12)))}px`;
 		const panelWidth = this.panel.offsetWidth;
-		const overflowsRight = rect.left + panelWidth > globalThis.innerWidth - margin;
-		const left = overflowsRight ? rect.right - panelWidth : rect.left;
+		const isOverflowsRight = rect.left + panelWidth > globalThis.innerWidth - margin;
+		const left = isOverflowsRight ? rect.right - panelWidth : rect.left;
 		style.left = `${String(Math.round(Math.max(margin, left)))}px`;
 	}
 

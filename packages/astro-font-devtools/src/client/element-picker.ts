@@ -8,7 +8,7 @@ export interface ElementPicker {
 }
 
 export function createElementPicker(onPick: (element: HTMLElement) => void): ElementPicker {
-	let active = false;
+	let isActive = false;
 	let highlight: HTMLElement | undefined;
 
 	function ensureHighlight(): HTMLElement {
@@ -77,8 +77,8 @@ export function createElementPicker(onPick: (element: HTMLElement) => void): Ele
 	}
 
 	function start(): void {
-		if (active) return;
-		active = true;
+		if (isActive) return;
+		isActive = true;
 		ensureHighlight();
 		document.body.style.cursor = 'crosshair';
 		document.addEventListener('pointermove', onMove, { capture: true });
@@ -87,7 +87,7 @@ export function createElementPicker(onPick: (element: HTMLElement) => void): Ele
 	}
 
 	function stop(): void {
-		active = false;
+		isActive = false;
 		document.body.style.removeProperty('cursor');
 		document.removeEventListener('pointermove', onMove, { capture: true });
 		document.removeEventListener('click', onClick, { capture: true });

@@ -8,7 +8,7 @@ export function memoizeByProviders<T>(
 	const cache = new Map<string, Promise<T>>();
 
 	return (providers) => {
-		const key = [...providers].toSorted().join(',');
+		const key = [...providers].toSorted((first, second) => first.localeCompare(second)).join(',');
 		const cached = cache.get(key);
 
 		if (cached) return cached;

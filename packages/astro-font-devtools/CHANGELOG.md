@@ -1,5 +1,11 @@
 # @xsynaptic/astro-font-devtools
 
+## 0.4.0
+
+### Minor Changes
+
+- Require Node.js >= 24.
+
 ## 0.3.0
 
 ### Minor Changes

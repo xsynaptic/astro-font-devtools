@@ -281,14 +281,14 @@ class FontCombobox extends HTMLElement {
 		const rect = this.input.getBoundingClientRect();
 		const spaceBelow = globalThis.innerHeight - rect.bottom;
 		const spaceAbove = rect.top;
-		const openDown = spaceBelow >= spaceAbove;
-		const maxHeight = Math.max(minDropdownHeight, (openDown ? spaceBelow : spaceAbove) - 12);
+		const isOpenDown = spaceBelow >= spaceAbove;
+		const maxHeight = Math.max(minDropdownHeight, (isOpenDown ? spaceBelow : spaceAbove) - 12);
 		const style = this.list.style;
 
 		style.left = `${String(Math.round(rect.left))}px`;
 		style.width = `${String(Math.round(rect.width))}px`;
 		style.maxHeight = `${String(Math.round(maxHeight))}px`;
-		if (openDown) {
+		if (isOpenDown) {
 			style.top = `${String(Math.round(rect.bottom + 4))}px`;
 			style.bottom = 'auto';
 		} else {

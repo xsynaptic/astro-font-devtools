@@ -54,14 +54,7 @@ export async function googlePopularityMap(): Promise<
 }
 
 function fetchGoogleMeta(): Promise<Array<GoogleFont>> {
-	googleMetaPromise ??= fetch('https://fonts.google.com/metadata/fonts')
-		.then((response) => response.text())
-		.then((text) => {
-			const json = text.replace(/^\)\]\}'[^\n]*\n/, ''); // strip XSSI prefix if present
-			const { familyMetadataList } = googleMetaSchema.parse(JSON.parse(json));
-
-			return parseFonts(familyMetadataList, googleFontSchema, 'google');
-		});
+	googleMetaPromise ??= loadGoogleMeta();
 
 	return googleMetaPromise;
 }
@@ -70,10 +63,20 @@ function googleWeights(fonts: Record<string, unknown>): Array<number> {
 	const weights = new Set<number>();
 
 	for (const key of Object.keys(fonts)) {
+		// eslint-disable-next-line unicorn/prefer-number-coercion -- keys carry an italic suffix (e.g. "400i"); parseInt reads the leading weight where Number() yields NaN
 		const weight = Number.parseInt(key, 10);
 
 		if (!Number.isNaN(weight)) weights.add(weight);
 	}
 
 	return [...weights].toSorted((first, second) => first - second);
+}
+
+async function loadGoogleMeta(): Promise<Array<GoogleFont>> {
+	const response = await fetch('https://fonts.google.com/metadata/fonts');
+	const text = await response.text();
+	const json = text.replace(/^\)\]\}'[^\n]*\n/, ''); // strip XSSI prefix if present
+	const { familyMetadataList } = googleMetaSchema.parse(JSON.parse(json));
+
+	return parseFonts(familyMetadataList, googleFontSchema, 'google');
 }

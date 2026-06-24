@@ -39,20 +39,24 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 
 		const { family, scoped, styles, weights } = query;
 
-		getUnifont(scoped)
-			.then((unifont) =>
-				unifont.resolveFont(family, { formats: ['woff2'], styles, subsets: ['latin'], weights }),
-			)
-			.then((result) => {
+		void (async () => {
+			try {
+				const unifont = await getUnifont(scoped);
+				const result = await unifont.resolveFont(family, {
+					formats: ['woff2'],
+					styles,
+					subsets: ['latin'],
+					weights,
+				});
 				const css = result.fonts.map((face) => renderFontFace(family, face)).join('\n');
 				res.setHeader('content-type', 'text/css');
 				res.setHeader('cache-control', 'no-store');
 				res.end(css);
-			})
-			.catch(() => {
+			} catch {
 				res.statusCode = 502;
 				res.end('/* resolve failed */');
-			});
+			}
+		})();
 	};
 }
 
@@ -92,7 +96,7 @@ export function renderFontFace(family: string, data: FontFaceData): string {
 }
 
 function isProviderName(value: string): value is ProviderName {
-	return value in providerFactories;
+	return Object.hasOwn(providerFactories, value);
 }
 
 function memoryStorage(): Storage {

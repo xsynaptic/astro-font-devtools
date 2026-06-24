@@ -10,9 +10,9 @@
 		"url": "git+https://github.com/xsynaptic/astro-font-devtools.git"
 	},
 	"type": "module",
-	"packageManager": "pnpm@11.6.0+sha512.9a36518224080c6fe5165afdcfe79bfa118c29be703f3f462b1e32efe1e98e47e8750b148e08286250aad4113cc7993ca413c4e2cd447752708c2ee5751bc95f",
+	"packageManager": "pnpm@11.8.0",
 	"engines": {
-		"node": ">=22.13.0"
+		"node": ">=24.0.0"
 	},
 	"scripts": {
 		"build": "pnpm --filter './packages/*' build",
@@ -28,15 +28,15 @@
 	},
 	"devDependencies": {
 		"@changesets/cli": "^2.31.0",
-		"@types/node": "^22.20.0",
-		"@xsynaptic/eslint-config": "^3.8.0",
+		"@types/node": "^24.13.2",
+		"@xsynaptic/eslint-config": "^5.0.1",
 		"eslint": "^10.5.0",
 		"jiti": "^2.7.0",
-		"knip": "^6.17.1",
+		"knip": "^6.18.0",
 		"prettier": "^3.8.4",
 		"tsdown": "^0.22.3",
 		"typescript": "^6.0.3",
-		"typescript-eslint": "^8.61.1",
+		"typescript-eslint": "^8.62.0",
 		"vitest": "^4.1.9"
 	}
 }

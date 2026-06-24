@@ -103,14 +103,14 @@ export class FontTargetRow extends HTMLElement {
 		`;
 
 		const targetInput = this.querySelector<HTMLInputElement>('.fdt-target');
-		const deleteButton = this.querySelector<HTMLButtonElement>('[data-action="delete"]');
+		const dismissButton = this.querySelector<HTMLButtonElement>('[data-action="delete"]');
 		const categorySelect = this.querySelector<HTMLSelectElement>('.fdt-category');
 		const combobox = this.querySelector('font-combobox');
 		const weightSelect = this.querySelector<HTMLSelectElement>('[data-control="weight"]');
 		const italicButton = this.querySelector<HTMLButtonElement>('[data-control="italic"]');
 		if (
 			!targetInput ||
-			!deleteButton ||
+			!dismissButton ||
 			!categorySelect ||
 			!combobox ||
 			!weightSelect ||
@@ -196,7 +196,7 @@ export class FontTargetRow extends HTMLElement {
 			{ signal },
 		);
 
-		deleteButton.addEventListener(
+		dismissButton.addEventListener(
 			'click',
 			() => {
 				if (isAdded) syncAdded(this.target, '');
@@ -335,7 +335,7 @@ export class FontTargetRow extends HTMLElement {
 
 	private pickDefaultWeight(font: CatalogFont): number {
 		const refEl = this.refElement();
-		const wanted = refEl ? Number.parseInt(getComputedStyle(refEl).fontWeight, 10) || 400 : 400;
+		const wanted = refEl ? Number(getComputedStyle(refEl).fontWeight) || 400 : 400;
 		if (font.weights.includes(wanted)) return wanted;
 		if (font.weights.includes(400)) return 400;
 
@@ -363,17 +363,17 @@ export class FontTargetRow extends HTMLElement {
 		}
 	}
 
-	private setItalic(on: boolean): void {
-		this.italicButton.setAttribute('aria-pressed', on ? 'true' : 'false');
+	private setItalic(isItalic: boolean): void {
+		this.italicButton.setAttribute('aria-pressed', isItalic ? 'true' : 'false');
 	}
 
 	// Weight/italic can't affect a CSS variable (it only carries the family, and we don't control
 	// where it's used), so they stay frozen for --var targets; only selector rows apply them.
 	private syncControlAvailability(): void {
 		if (!this.selectedFont) return;
-		const variable = isVarTarget(this.target);
-		this.weightSelect.disabled = variable || this.selectedFont.weights.length === 0;
-		this.italicButton.disabled = variable || !this.selectedFont.italic;
+		const isVariable = isVarTarget(this.target);
+		this.weightSelect.disabled = isVariable || this.selectedFont.weights.length === 0;
+		this.italicButton.disabled = isVariable || !this.selectedFont.italic;
 		if (this.italicButton.disabled) this.setItalic(false);
 	}
 }
