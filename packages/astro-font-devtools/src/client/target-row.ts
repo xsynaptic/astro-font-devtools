@@ -314,7 +314,7 @@ export class FontTargetRow extends HTMLElement {
 	}
 
 	private freezeControls(): void {
-		this.weightSelect.innerHTML = '';
+		this.weightSelect.replaceChildren();
 		this.weightSelect.disabled = true;
 		this.italicButton.disabled = true;
 		this.setItalic(false);

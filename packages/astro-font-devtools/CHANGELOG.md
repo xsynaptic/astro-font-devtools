@@ -1,5 +1,11 @@
 # @xsynaptic/astro-font-devtools
 
+## 0.4.1
+
+### Patch Changes
+
+- Upgrade dev dependencies (Astro 7.0.3, Vite 8.1, Playwright 1.61.1) and tooling
+
 ## 0.4.0
 
 ### Minor Changes
