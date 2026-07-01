@@ -1,7 +1,7 @@
 import { defineToolbarApp } from 'astro/toolbar';
 
 import type { ComboboxOption } from './client/combobox.js';
-import type { FontTargetRow } from './client/target-row.js';
+import type { FontTargetRow, ResolveRequest } from './client/target-row.js';
 import type { CatalogFont } from './shared/types.js';
 
 import './client/combobox.js';
@@ -9,7 +9,8 @@ import './client/script-select.js';
 import './client/target-row.js';
 import { html } from './client/dom-tags.js';
 import { createElementPicker } from './client/element-picker.js';
-import { sortedScripts, toBaseScripts } from './client/scripts.js';
+import { filterFonts } from './client/filter.js';
+import { sortedScripts } from './client/scripts.js';
 import {
 	addedTargets,
 	getSelection,
@@ -127,7 +128,8 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 	const scriptSelect = canvas.querySelector('font-script-select');
 
 	const active = new Set<string>();
-	const activeScripts = new Set<string>(['latin']);
+	// Start unfiltered: the whole catalog shows on load, and picking a script narrows from there.
+	const activeScripts = new Set<string>();
 	const providerFor = (font: CatalogFont): string | undefined =>
 		font.providers.find((provider) => active.has(provider));
 
@@ -187,18 +189,11 @@ function render(canvas: ShadowRoot, configTargets: Array<string>): void {
 			const allProviders = fonts.flatMap((font) => font.providers);
 			for (const provider of allProviders) active.add(provider);
 			const computeOptions = (): Array<ComboboxOption> =>
-				fonts
-					.filter((font) => font.providers.some((provider) => active.has(provider)))
-					.filter(
-						(font) =>
-							activeScripts.size === 0 ||
-							toBaseScripts(font.scripts).every((script) => activeScripts.has(script)),
-					)
-					.map((font) => ({
-						category: font.category,
-						family: font.family,
-						variable: font.variable,
-					}));
+				filterFonts(fonts, active, activeScripts).map((font) => ({
+					category: font.category,
+					family: font.family,
+					variable: font.variable,
+				}));
 
 			function refreshOptions(): void {
 				currentOptions = computeOptions();
@@ -282,18 +277,20 @@ function renderProviderToggles(
 	}
 }
 
-async function resolveCss(
-	family: string,
-	provider: string | undefined,
-	weights: Array<string>,
-	styles: Array<string>,
-): Promise<string> {
+async function resolveCss({
+	family,
+	provider,
+	styles,
+	subsets,
+	weights,
+}: ResolveRequest): Promise<string> {
 	const params = new URLSearchParams({
 		family,
 		styles: styles.join(','),
 		weights: weights.join(','),
 	});
 	if (provider) params.set('provider', provider);
+	if (subsets.length > 0) params.set('subsets', subsets.join(','));
 
 	const response = await fetch(`${resolveUrl}?${params.toString()}`);
 

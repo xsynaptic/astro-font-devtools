@@ -88,8 +88,16 @@ describe('parseResolveQuery', () => {
 			family: 'Inter',
 			scoped: ['fontsource'],
 			styles: ['normal', 'italic'],
+			subsets: [],
 			weights: ['400', '700'],
 		});
+	});
+
+	it('parses the subset list and defaults to an empty list when absent', () => {
+		expect(
+			parseResolveQuery('/resolve?family=Inter&subsets=latin,cyrillic', ['fontsource'])?.subsets,
+		).toEqual(['latin', 'cyrillic']);
+		expect(parseResolveQuery('/resolve?family=Inter', ['fontsource'])?.subsets).toEqual([]);
 	});
 
 	it('parses custom weights and drops style values that are not real font styles', () => {
@@ -133,6 +141,22 @@ describe('createResolveHandler', () => {
 		expect(result.headers['content-type']).toBe('text/css');
 		expect(result.headers['cache-control']).toBe('no-store');
 		expect(result.body).toContain('@font-face');
+	});
+
+	it('forwards requested subsets and omits the option when none are given', async () => {
+		resolveFont.mockResolvedValue({ fonts: [{ src: [{ url: '/a.woff2' }] }] });
+
+		await runHandler(
+			createResolveHandler(['fontsource']),
+			'/resolve?family=Inter&subsets=latin,cyrillic',
+		);
+		expect(resolveFont).toHaveBeenLastCalledWith(
+			'Inter',
+			expect.objectContaining({ subsets: ['latin', 'cyrillic'] }),
+		);
+
+		await runHandler(createResolveHandler(['fontsource']), '/resolve?family=Inter');
+		expect(resolveFont.mock.lastCall?.[1]).not.toHaveProperty('subsets');
 	});
 
 	it('returns 502 when resolution fails', async () => {

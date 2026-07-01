@@ -37,7 +37,7 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 			return;
 		}
 
-		const { family, scoped, styles, weights } = query;
+		const { family, scoped, styles, subsets, weights } = query;
 
 		void (async () => {
 			try {
@@ -45,8 +45,9 @@ export function createResolveHandler(providers: Array<ProviderName>): Connect.Ne
 				const result = await unifont.resolveFont(family, {
 					formats: ['woff2'],
 					styles,
-					subsets: ['latin'],
 					weights,
+					// Omit when empty so unifont applies its multi-script default instead of being pinned
+					...(subsets.length > 0 ? { subsets } : {}),
 				});
 				const css = result.fonts.map((face) => renderFontFace(family, face)).join('\n');
 				res.setHeader('content-type', 'text/css');
@@ -71,10 +72,14 @@ export function parseResolveQuery(url: string, providers: Array<ProviderName>) {
 	const styles = (params.get('styles') ?? 'normal,italic')
 		.split(',')
 		.filter((style): style is FontStyles => fontStyles.has(style));
+	const subsets = (params.get('subsets') ?? '')
+		.split(',')
+		.map((subset) => subset.trim())
+		.filter(Boolean);
 	const scoped =
 		provider && isProviderName(provider) && providers.includes(provider) ? [provider] : providers;
 
-	return { family, scoped, styles, weights };
+	return { family, scoped, styles, subsets, weights };
 }
 
 export function renderFontFace(family: string, data: FontFaceData): string {

@@ -6,6 +6,14 @@ import { icons } from '../shared/icons.js';
 import { fontCategories } from '../shared/types.js';
 import { html } from './dom-tags.js';
 
+export interface ResolveRequest {
+	family: string;
+	provider: string | undefined;
+	styles: Array<string>;
+	subsets: Array<string>;
+	weights: Array<string>;
+}
+
 export interface TargetRowOptions {
 	findFont: (family: string) => CatalogFont | undefined;
 	getSelection: (target: string) => Selection | undefined;
@@ -13,12 +21,7 @@ export interface TargetRowOptions {
 	isAdded: boolean;
 	providerFor: (font: CatalogFont) => string | undefined;
 	removeSelection: (target: string) => void;
-	resolveCss: (
-		family: string,
-		provider: string | undefined,
-		weights: Array<string>,
-		styles: Array<string>,
-	) => Promise<string>;
+	resolveCss: (request: ResolveRequest) => Promise<string>;
 	setSelection: (target: string, selection: Selection) => void;
 	syncAdded: (oldTarget: string, newTarget: string) => void;
 }
@@ -252,10 +255,13 @@ export class FontTargetRow extends HTMLElement {
 		if (saved.weight !== undefined) this.weightSelect.value = String(saved.weight);
 		this.setItalic(saved.italic ?? false);
 		void this.options
-			.resolveCss(saved.family, this.options.providerFor(font), font.weights.map(String), [
-				'normal',
-				'italic',
-			])
+			.resolveCss({
+				family: saved.family,
+				provider: this.options.providerFor(font),
+				styles: ['normal', 'italic'],
+				subsets: font.scripts,
+				weights: font.weights.map(String),
+			})
 			.then((css) => {
 				this.faceCss = css;
 				this.applyNow();
@@ -294,12 +300,13 @@ export class FontTargetRow extends HTMLElement {
 		const font = this.options.findFont(family);
 		if (!font) return;
 		this.populatePanel(font);
-		this.faceCss = await this.options.resolveCss(
+		this.faceCss = await this.options.resolveCss({
 			family,
-			this.options.providerFor(font),
-			font.weights.map(String),
-			['normal', 'italic'],
-		);
+			provider: this.options.providerFor(font),
+			styles: ['normal', 'italic'],
+			subsets: font.scripts,
+			weights: font.weights.map(String),
+		});
 		this.applyNow();
 		this.persist();
 	}
